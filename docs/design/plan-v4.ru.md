@@ -597,11 +597,13 @@ Generic-адаптер реализует этот интерфейс по YAML.
 > Имена инструментов плагина: `mcp__plugin_foreman-code-ops_foreman__<tool>` (а не `mcp__foreman__…`, как в §0). Плагин не может сам добавить `permissions.deny` — это делает только `init`.
 
 ### Этап 6 — Python, TS/JS, TSX (5–7 дней)
-- [ ] Адаптер Python (ruff, pyright, pytest)
-- [ ] Адаптер TS/JS (tsc incremental, biome/prettier/eslint, vitest/jest)
-- [ ] Адаптер TSX/JSX (компоненты, хуки)
-- [ ] Автоопределение инструментов проекта
-- [ ] Фикстуры и E2E на каждый язык
+- [x] Адаптер Python (ruff, pyright или mypy, pytest)
+- [x] Адаптер TS/JS (tsc incremental, biome/prettier/eslint, vitest/jest)
+- [x] Адаптер TSX/JSX (компоненты по заглавной букве, хуки как функции)
+- [x] Автоопределение инструментов: условия `when` (конфиги, зависимости package.json, `checkJs`), группы «первый подходящий», `node_modules/.bin` и `.venv/bin`
+- [x] Фикстуры (`py-layered`, `ts-layered`, `tsx-components`) и E2E на каждый язык
+- [x] Проверка кандидатов без записи на диск для языков без overlay: синхронизируемая копия корня сервиса вне проекта
+- [x] `init` запрещает Edit только для языков проекта; `.mjs`/`.cjs`-конфиги остаются редактируемыми
 
 ### Этап 6a — связи между сервисами (4–5 дней)
 - [ ] Детекторы HTTP-роутов и вызовов для Go, Python, TS

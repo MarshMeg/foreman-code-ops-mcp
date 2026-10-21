@@ -2,9 +2,7 @@ package ops
 
 import (
 	"context"
-	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/MarshMeg/foreman-code-ops/internal/gate"
 	"github.com/MarshMeg/foreman-code-ops/internal/workspace"
@@ -48,28 +46,5 @@ func (o *Ops) RunTests(ctx context.Context, target, filter string) (gate.TestRes
 	return o.gate.Test(ctx, workspace.New(o.proj.Root), target, filter)
 }
 
-// ToolWarnings lists toolchain commands that are not in PATH.
-func (o *Ops) ToolWarnings() []string {
-	var out []string
-	seen := map[string]bool{}
-	for _, a := range o.reg.All() {
-		tc := a.Toolchain()
-		var cmds [][]string
-		for _, s := range tc.Steps() {
-			cmds = append(cmds, s.Run)
-		}
-		if tc.Test != nil {
-			cmds = append(cmds, tc.Test.Run)
-		}
-		for _, c := range cmds {
-			if len(c) == 0 || seen[c[0]] {
-				continue
-			}
-			seen[c[0]] = true
-			if _, err := exec.LookPath(c[0]); err != nil {
-				out = append(out, fmt.Sprintf("%s: %q not found in PATH; its gate steps will fail", a.Lang(), c[0]))
-			}
-		}
-	}
-	return out
-}
+// ToolWarnings lists required toolchain commands that are missing for languages the project uses.
+func (o *Ops) ToolWarnings() []string { return o.gate.MissingTools() }

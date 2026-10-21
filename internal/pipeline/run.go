@@ -105,9 +105,11 @@ func Run(ctx context.Context, env Env, t Task) (Outcome, error) {
 	if r.current, r.found, err = findSymbol(env.Adapter, r.base, t.Symbol); err != nil {
 		return Outcome{}, err
 	}
-	if !r.found && t.Anchor != "" {
-		if _, err := env.Adapter.Find(r.base, t.Anchor); err != nil {
-			return Outcome{}, fmt.Errorf("anchor: %w", err)
+	if !r.found {
+		// Fail on an impossible placement (missing anchor, class without members) before
+		// spending a model call.
+		if _, err := splice(env.Adapter, r.base, t, "placeholder"); err != nil {
+			return Outcome{}, err
 		}
 	}
 	if r.system, err = render("generate.md", map[string]any{"Lang": env.Adapter.Lang(), "Fragment": env.Adapter.PromptFragment()}); err != nil {

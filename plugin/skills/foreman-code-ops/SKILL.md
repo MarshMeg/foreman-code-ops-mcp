@@ -1,6 +1,6 @@
 ---
 name: foreman-code-ops
-description: How to change source code in projects that use foreman-code-ops — write and delete functions, methods, types and classes through the foreman MCP tools (upsert_symbol, delete_symbol, create_file, check, run_tests, style_set) instead of editing files directly. Use whenever you would edit Go source in a project with a .foreman directory or the foreman MCP server.
+description: How to change source code in projects that use foreman-code-ops — write and delete functions, methods, types, classes and components through the foreman MCP tools (upsert_symbol, delete_symbol, create_file, check, run_tests, style_set) instead of editing files directly. Use whenever you would edit Go, Python, TypeScript or JavaScript source in a project with a .foreman directory or the foreman MCP server.
 ---
 
 # Changing code with foreman-code-ops
@@ -25,8 +25,10 @@ Write everything you send to foreman in **English**: `spec`, `interface`, `commi
 ## Writing a symbol: `upsert_symbol`
 
 One call writes one symbol: a function, method (`Type.Method`), type, interface, class or
-component. If it exists it is replaced, otherwise inserted (after `anchor`, or at the end;
-the file is created if needed, with `package` for new Go files).
+component. If it exists it is replaced, otherwise inserted: after `anchor`; a new method
+after the last member of its class; anything else at the end of the file (created if needed,
+with `package` for new Go files). In Python and TypeScript a method can only be added to a
+class that already has a member — otherwise pass `anchor`, or upsert the whole class.
 
 - **spec**: what it must do, concretely: inputs, outputs, errors, edge cases. The writer is
   a small model; leave nothing important implicit.
@@ -71,7 +73,7 @@ the file is created if needed, with `package` for new Go files).
 ## Files foreman does not handle
 
 Edit and Write are denied for source files foreman manages. Non-source files (go.mod,
-configs, docs, SQL, YAML) are edited normally. If a change cannot be expressed as symbols
+package.json, pyproject.toml, `.mjs`/`.cjs` configs, docs, SQL, YAML) are edited normally. If a change cannot be expressed as symbols
 (for example, a package-level `var` block), tell the user instead of bypassing the rules.
 
 ## Project style guide
@@ -85,6 +87,6 @@ it: study the codebase, then call `style_set` with sections such as:
 - `## Layer naming` (repository, service, handler)
 - `## Context and cancellation`
 - `## Comments`
-- one section per language: `## Go`, `## Python`, `## TypeScript`
+- one section per language: `## Go`, `## Python`, `## TypeScript`, `## JavaScript`
 
 Keep it short and concrete; update one section with `style_set {section, content}`.

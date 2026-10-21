@@ -1,6 +1,7 @@
 package gate
 
 import (
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -60,12 +61,26 @@ type outputParser struct {
 	projectRoot, cwd string
 	// backing maps overlay backing files (which tools may report) to project-relative paths.
 	backing map[string]string
+	// shadow is a shadow root standing in for realDir.
+	shadow, realDir string
+	// onlyMatches drops lines that do not match re.
+	onlyMatches bool
+	// format selects a structured parser ("eslint-json").
+	format string
 }
 
 // parse extracts diagnostics line by line. Lines matching the pattern start a diagnostic,
 // indented or other non-matching lines continue the previous one, and package headers
 // ("# pkg") are dropped. Output with no match at all becomes a single file-less diagnostic.
+var ansi = regexp.MustCompile(`\x1b\[[0-9;]*[A-Za-z]`)
+
 func (p outputParser) parse(output string) []Diagnostic {
+	output = ansi.ReplaceAllString(output, "")
+	if p.format == "eslint-json" {
+		if ds, ok := p.parseESLint(output); ok {
+			return ds
+		}
+	}
 	var out []Diagnostic
 	var loose []string
 	for _, line := range strings.Split(strings.TrimRight(output, "\n"), "\n") {
@@ -77,6 +92,9 @@ func (p outputParser) parse(output string) []Diagnostic {
 				out = append(out, p.fromMatch(m))
 				continue
 			}
+		}
+		if p.onlyMatches {
+			continue
 		}
 		if len(out) > 0 && (strings.HasPrefix(line, "\t") || strings.HasPrefix(line, " ")) {
 			last := &out[len(out)-1]
@@ -108,6 +126,10 @@ func (p outputParser) fromMatch(m []string) Diagnostic {
 			d.Column, _ = strconv.Atoi(m[i])
 		case "message":
 			d.Message = m[i]
+		case "severity":
+			if strings.Contains(strings.ToLower(m[i]), "warn") {
+				d.Severity = SeverityWarning
+			}
 		}
 	}
 	return d
@@ -117,8 +139,12 @@ func (p outputParser) relFile(f string) string {
 	if !filepath.IsAbs(f) {
 		f = filepath.Join(p.cwd, f)
 	}
-	if rel, ok := p.backing[filepath.Clean(f)]; ok {
+	f = filepath.Clean(f)
+	if rel, ok := p.backing[f]; ok {
 		return rel
+	}
+	if p.shadow != "" && (f == p.shadow || strings.HasPrefix(f, p.shadow+string(filepath.Separator))) {
+		f = filepath.Join(p.realDir, strings.TrimPrefix(f, p.shadow))
 	}
 	if rel, err := filepath.Rel(p.projectRoot, f); err == nil && !strings.HasPrefix(rel, "..") {
 		return filepath.ToSlash(rel)
@@ -134,4 +160,40 @@ func capDiagnostics(ds []Diagnostic) []Diagnostic {
 	dropped := len(ds) - maxDiagnostics
 	ds = ds[:maxDiagnostics]
 	return append(ds, Diagnostic{Severity: SeverityWarning, Source: "gate", Message: fmt.Sprintf("%d more diagnostics omitted", dropped)})
+}
+
+// parseESLint reads `eslint --format json` output.
+func (p outputParser) parseESLint(output string) ([]Diagnostic, bool) {
+	start := strings.IndexByte(output, '[')
+	if start < 0 {
+		return nil, false
+	}
+	var files []struct {
+		FilePath string `json:"filePath"`
+		Messages []struct {
+			RuleID   string `json:"ruleId"`
+			Severity int    `json:"severity"`
+			Message  string `json:"message"`
+			Line     int    `json:"line"`
+			Column   int    `json:"column"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal([]byte(output[start:]), &files); err != nil {
+		return nil, false
+	}
+	var out []Diagnostic
+	for _, f := range files {
+		for _, m := range f.Messages {
+			sev := SeverityWarning
+			if m.Severity >= 2 {
+				sev = SeverityError
+			}
+			msg := m.Message
+			if m.RuleID != "" {
+				msg += " (" + m.RuleID + ")"
+			}
+			out = append(out, Diagnostic{File: p.relFile(f.FilePath), Line: m.Line, Column: m.Column, Severity: sev, Source: p.source, Message: msg})
+		}
+	}
+	return out, true
 }

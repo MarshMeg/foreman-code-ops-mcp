@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/MarshMeg/foreman-code-ops/internal/lang"
 	"golang.org/x/tools/go/ast/astutil"
 	"golang.org/x/tools/imports"
 )
@@ -22,6 +23,7 @@ type fileJob struct {
 	abs, rel string
 	src      []byte
 	imports  []string // insert-imports only
+	adapter  lang.Adapter
 }
 
 // builtinFunc rewrites a file. Problems in the code are returned as diagnostics;
@@ -32,6 +34,59 @@ var builtins = map[string]builtinFunc{
 	"goimports":         goimportsStep,
 	"gofmt":             gofmtStep,
 	"go-insert-imports": goInsertImports,
+	"insert-imports":    textInsertImports,
+}
+
+// textInsertImports adds import lines that are not in the file yet at the adapter's import
+// point. Formatters and import organizers (ruff, biome) sort and merge them afterwards.
+func textInsertImports(_ context.Context, job fileJob, source string) ([]byte, []Diagnostic, error) {
+	a := job.adapter
+	existing, err := a.Imports(job.src)
+	if err != nil {
+		return nil, nil, err
+	}
+	have := map[string]bool{}
+	for _, imp := range existing {
+		for _, l := range strings.Split(imp, "\n") {
+			have[strings.TrimSpace(l)] = true
+		}
+	}
+	var lines []string
+	var diags []Diagnostic
+	for _, raw := range job.imports {
+		imp := strings.TrimSpace(raw)
+		if imp == "" {
+			continue
+		}
+		if !strings.HasPrefix(imp, "import ") && !strings.HasPrefix(imp, "from ") {
+			if a.BareImport() == "" {
+				diags = append(diags, Diagnostic{File: job.rel, Severity: SeverityWarning, Source: source,
+					Message: fmt.Sprintf("ignored import %q: write a full import statement", imp)})
+				continue
+			}
+			imp = strings.ReplaceAll(a.BareImport(), "{}", strings.Trim(imp, "\"'"))
+		}
+		if have[imp] {
+			continue
+		}
+		have[imp] = true
+		lines = append(lines, imp)
+	}
+	if len(lines) == 0 {
+		return job.src, diags, nil
+	}
+	at, err := a.ImportPoint(job.src)
+	if err != nil {
+		return nil, nil, err
+	}
+	block := strings.Join(lines, "\n")
+	var out []byte
+	if at == 0 {
+		out = append([]byte(block+"\n\n"), job.src...)
+	} else {
+		out = append(append(append([]byte{}, job.src[:at]...), []byte("\n"+block)...), job.src[at:]...)
+	}
+	return out, diags, nil
 }
 
 func goimportsStep(_ context.Context, job fileJob, source string) ([]byte, []Diagnostic, error) {

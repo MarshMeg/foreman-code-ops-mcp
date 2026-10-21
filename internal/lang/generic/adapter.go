@@ -48,6 +48,14 @@ type Spec struct {
 	ImportsQuery string `yaml:"imports_query"`
 	// Strip lists regular expressions removed from generated code.
 	Strip []string `yaml:"strip"`
+	// ImportPreamble are top-level node kinds kept above inserted imports when a file has
+	// none yet (comment; expression_statement counts only when it is a lone string, i.e. a
+	// docstring or a "use client" directive).
+	ImportPreamble []string `yaml:"import_preamble"`
+	// ImportBare is a template turning a bare module name into an import ("import {}").
+	ImportBare string `yaml:"import_bare"`
+	// NestedMembers marks languages whose methods live inside the class body.
+	NestedMembers bool `yaml:"nested_members"`
 }
 
 // NewFile describes new file content.
@@ -193,6 +201,55 @@ func (a *Adapter) Close() {
 	}
 }
 
+// BareImport implements lang.Adapter.
+func (a *Adapter) BareImport() string { return a.spec.ImportBare }
+
+// NestedMembers implements lang.Adapter.
+func (a *Adapter) NestedMembers() bool { return a.spec.NestedMembers }
+
+// ImportPoint implements lang.Adapter.
+func (a *Adapter) ImportPoint(src []byte) (int, error) {
+	parser := ts.NewParser()
+	defer parser.Close()
+	if err := parser.SetLanguage(a.language); err != nil {
+		return 0, err
+	}
+	tree := parser.Parse(src, nil)
+	if tree == nil {
+		return 0, fmt.Errorf("%s: parse failed", a.spec.Lang)
+	}
+	defer tree.Close()
+	end := -1
+	if a.imports != nil {
+		cursor := ts.NewQueryCursor()
+		defer cursor.Close()
+		matches := cursor.Matches(a.imports, tree.RootNode(), src)
+		for m := matches.Next(); m != nil; m = matches.Next() {
+			for _, c := range m.Captures {
+				if e := int(c.Node.EndByte()); e > end {
+					end = e
+				}
+			}
+		}
+	}
+	if end >= 0 {
+		return end, nil
+	}
+	end = 0
+	root := tree.RootNode()
+	for i := uint(0); i < root.NamedChildCount(); i++ {
+		n := root.NamedChild(i)
+		if !slices.Contains(a.spec.ImportPreamble, n.Kind()) {
+			break
+		}
+		if n.Kind() == "expression_statement" && (n.NamedChildCount() != 1 || n.NamedChild(0).Kind() != "string") {
+			break
+		}
+		end = int(n.EndByte())
+	}
+	return end, nil
+}
+
 // PromptFragment implements lang.Adapter.
 func (a *Adapter) PromptFragment() string { return a.prompt }
 
@@ -309,7 +366,7 @@ func (a *Adapter) Symbols(src []byte) ([]lang.Symbol, error) {
 			End:       int(rng.EndByte()),
 			StartLine: start.row + 1,
 			EndLine:   int(rng.EndPosition().Row) + 1,
-			Signature: a.signature(d, src),
+			Signature: a.signature(d, rng, src),
 		}
 		out = append(out, sym)
 	}
@@ -359,14 +416,32 @@ func (a *Adapter) commentStart(n *ts.Node) pos {
 	return cur
 }
 
-func (a *Adapter) signature(d *rawDef, src []byte) string {
+// signature is the declaration text from the outer node (with export/type keywords) up to
+// the body, or the whole declaration for kinds without a body field.
+func (a *Adapter) signature(d *rawDef, outer *ts.Node, src []byte) string {
 	field, ok := a.spec.BodyFields[d.kind]
 	if ok {
-		if body := d.node.ChildByFieldName(field); body != nil {
-			return strings.TrimSpace(string(src[d.node.StartByte():body.StartByte()]))
+		// The body may sit deeper than the definition node: const f = () => { ... }.
+		if body := findField(d.node, field); body != nil {
+			return strings.TrimSpace(string(src[outer.StartByte():body.StartByte()]))
 		}
 	}
-	return strings.TrimSpace(d.node.Utf8Text(src))
+	return strings.TrimSpace(outer.Utf8Text(src))
+}
+
+// findField returns the first node, in pre-order from n, that is the field child of its parent.
+func findField(n *ts.Node, field string) *ts.Node {
+	if c := n.ChildByFieldName(field); c != nil {
+		return c
+	}
+	for i := uint(0); i < n.NamedChildCount(); i++ {
+		if c := n.NamedChild(i); c != nil {
+			if f := findField(c, field); f != nil {
+				return f
+			}
+		}
+	}
+	return nil
 }
 
 // Find implements lang.Adapter.

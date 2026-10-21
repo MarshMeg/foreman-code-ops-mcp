@@ -7,6 +7,9 @@ import (
 	"unsafe"
 
 	tsgo "github.com/tree-sitter/tree-sitter-go/bindings/go"
+	tsjs "github.com/tree-sitter/tree-sitter-javascript/bindings/go"
+	tspy "github.com/tree-sitter/tree-sitter-python/bindings/go"
+	tsts "github.com/tree-sitter/tree-sitter-typescript/bindings/go"
 
 	"github.com/MarshMeg/foreman-code-ops/adapters"
 	"github.com/MarshMeg/foreman-code-ops/internal/lang"
@@ -16,7 +19,11 @@ import (
 // Grammars are the tree-sitter grammars compiled into the binary, by name.
 func Grammars() map[string]unsafe.Pointer {
 	return map[string]unsafe.Pointer{
-		"go": tsgo.Language(),
+		"go":         tsgo.Language(),
+		"python":     tspy.Language(),
+		"typescript": tsts.LanguageTypescript(),
+		"tsx":        tsts.LanguageTSX(),
+		"javascript": tsjs.Language(),
 	}
 }
 

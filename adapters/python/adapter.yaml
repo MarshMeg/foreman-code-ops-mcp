@@ -1,0 +1,57 @@
+lang: python
+grammar: python
+extensions: [.py, .pyi]
+symbols_query: symbols.scm
+imports_query: imports.scm
+prompt: prompt.md
+body_fields:
+  function: body
+  method: body
+  class: body
+leading_comments: [comment]
+# Decorators belong to the symbol: @app.get(...) def list_books(): ...
+wrap_single: [decorated_definition]
+nested_members: true
+import_preamble: [comment, expression_statement]
+import_bare: "import {}"
+new_file:
+  template: ""
+strip:
+  - '(?ms)^from\s+\S+\s+import\s*\(.*?\)[ \t]*\n?'
+  - '(?m)^(?:from\s+\S+\s+)?import\s+.*\n?'
+
+toolchain:
+  root_markers: [pyproject.toml, setup.py, setup.cfg, requirements.txt]
+  bin_dirs: [.venv/bin, venv/bin]
+  overlay: false
+  # pytest runs the whole suite (tests usually live in tests/); -k narrows it.
+  package_pattern: "."
+  recursive_pattern: "{dir}"
+  all_packages: "."
+  insert_imports: {name: insert imports, builtin: insert-imports}
+  fix:
+    - name: ruff imports
+      run: [ruff, check, --fix, --select, "I,F401", --exit-zero, --no-cache, --quiet, --stdin-filename, "{file}", "-"]
+    - name: ruff format
+      run: [ruff, format, --quiet, --stdin-filename, "{file}", "-"]
+      pattern: '^error: Failed to parse (?P<file>[^:]+):(?P<line>\d+):(?P<col>\d+): (?P<message>.*)$'
+  check:
+    - name: ruff
+      run: [ruff, check, --output-format=concise, --no-cache, --quiet, "{files}"]
+      pattern: '^(?P<file>[^:\s][^:]*\.pyi?):(?P<line>\d+):(?P<col>\d+): (?P<message>.*)$'
+      only_matches: true
+    # Type checking: pyright if installed, else mypy. Strongly recommended: Python has no compiler.
+    - name: pyright
+      group: typecheck
+      run: [pyright, "{files}"]
+      pattern: '^\s*(?P<file>/[^:]+\.pyi?):(?P<line>\d+):(?P<col>\d+) - (?P<severity>error|warning): (?P<message>.*)$'
+      only_matches: true
+    - name: mypy
+      group: typecheck
+      run: [mypy, --no-error-summary, --no-color-output, --show-column-numbers, "{files}"]
+      pattern: '^(?P<file>[^:\s][^:]*\.pyi?):(?P<line>\d+):(?P<col>\d+): error: (?P<message>.*)$'
+      only_matches: true
+  tests:
+    - name: pytest
+      run: [pytest, -q, "{packages}"]
+      filter: [-k, "{filter}"]

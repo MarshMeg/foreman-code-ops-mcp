@@ -7,8 +7,12 @@ Thanks for your interest in foreman-code-ops.
 Requirements: Go (version in `go.mod`), git, a C compiler (tree-sitter grammars are built with cgo).
 [golangci-lint](https://golangci-lint.run) v2 for linting.
 
+Python and TypeScript adapter tests need ruff, pyright, mypy, pytest, typescript, prettier,
+biome, eslint and vitest; they are skipped when missing. Install them globally, or into a prefix
+and point `FOREMAN_TEST_PATH` (a PATH-style list) at their bin directories:
+
 ```bash
-go test -race ./...
+FOREMAN_TEST_PATH=$HOME/tools/py/bin:$HOME/tools/node/node_modules/.bin go test -race ./...
 golangci-lint run
 go run ./cmd/foreman-code-ops config --project .
 ```

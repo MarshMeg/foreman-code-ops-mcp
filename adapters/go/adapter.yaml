@@ -30,9 +30,10 @@ toolchain:
     - name: go vet
       run: [go, vet, -overlay, "{overlay}", "{packages}"]
       pattern: '^(?:vet: )?(?P<file>[^\s:#][^:]*\.go):(?P<line>\d+)(?::(?P<col>\d+))?: (?P<message>.*)$'
-  test:
-    run: [go, test, -overlay, "{overlay}", "{packages}"]
-    filter: [-run, "{filter}"]
+  tests:
+    - name: go test
+      run: [go, test, -overlay, "{overlay}", "{packages}"]
+      filter: [-run, "{filter}"]
 
 prompt: prompt.md
 imports_query: imports.scm

@@ -25,7 +25,12 @@ func upsertOps(t *testing.T, llm *tu.FakeLLM, mutate ...func(*config.Config)) (*
 	if _, err := exec.LookPath("go"); err != nil {
 		t.Skip("go not in PATH")
 	}
-	dir := tu.RepoFromFixture(t, fixture)
+	return upsertOpsIn(t, fixture, llm, mutate...)
+}
+
+func upsertOpsIn(t *testing.T, fixtureDir string, llm *tu.FakeLLM, mutate ...func(*config.Config)) (*Ops, string) {
+	t.Helper()
+	dir := tu.RepoFromFixture(t, fixtureDir)
 	return newOps(t, dir, append([]func(*config.Config){func(c *config.Config) {
 		c.Generator.BaseURL = llm.URL
 		c.Generator.Model = "test-model"

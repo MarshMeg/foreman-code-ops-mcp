@@ -85,6 +85,38 @@ func workspace(o Options, rep *Report) error {
 	return nil
 }
 
+// langExtensions are the source extensions routed through foreman per detected language.
+// Module configs (.mjs/.cjs: eslint.config.mjs, vitest.config.mjs) stay directly editable,
+// since they are not symbol-shaped code.
+var langExtensions = map[string][]string{
+	"go":         {".go"},
+	"python":     {".py", ".pyi"},
+	"typescript": {".ts", ".mts", ".cts", ".tsx", ".jsx"},
+	"tsx":        {".tsx", ".jsx"},
+	"javascript": {".js", ".jsx"},
+}
+
+// ExtensionsFor returns the extensions to deny for the languages a project uses. A
+// TypeScript project keeps plain .js files (usually configs and scripts) editable.
+func ExtensionsFor(langs []string) []string {
+	seen := map[string]bool{}
+	ts := slices.Contains(langs, "typescript")
+	var out []string
+	for _, l := range langs {
+		if l == "javascript" && ts {
+			continue
+		}
+		for _, e := range langExtensions[l] {
+			if !seen[e] {
+				seen[e] = true
+				out = append(out, e)
+			}
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
 // DenyRules returns the Edit deny rules for the extensions. Claude Code checks Write,
 // MultiEdit and NotebookEdit against Edit rules, so Edit rules cover them all.
 func DenyRules(exts []string) []string {

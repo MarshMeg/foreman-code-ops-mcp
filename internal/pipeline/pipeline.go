@@ -145,7 +145,42 @@ func splice(a lang.Adapter, base []byte, t Task, code string) ([]byte, error) {
 		}
 		return edit.InsertAfter(base, anchor.Start, anchor.End, code)
 	}
+	if i := strings.LastIndex(t.Symbol, "."); i > 0 {
+		return insertMember(a, base, t.Symbol[:i], code)
+	}
 	return edit.Append(base, code), nil
+}
+
+// insertMember places a new member (Type.Method) after the type's last member, or after the
+// type itself where methods are top-level declarations (Go).
+func insertMember(a lang.Adapter, base []byte, parent, code string) ([]byte, error) {
+	syms, err := a.Symbols(base)
+	if err != nil {
+		return nil, err
+	}
+	var owner, last *lang.Symbol
+	for i := range syms {
+		s := &syms[i]
+		switch {
+		case s.Name == parent:
+			owner = s
+		case strings.HasPrefix(s.Name, parent+".") && !strings.Contains(strings.TrimPrefix(s.Name, parent+"."), "."):
+			last = s
+		}
+	}
+	switch {
+	case last != nil:
+		return edit.InsertAfter(base, last.Start, last.End, code)
+	case !a.NestedMembers() && owner == nil:
+		// Go: the type may be declared in another file of the package.
+		return edit.Append(base, code), nil
+	case !a.NestedMembers():
+		return edit.InsertAfter(base, owner.Start, owner.End, code)
+	case owner == nil:
+		return nil, fmt.Errorf("%s does not exist in the file; create it first or pass anchor", parent)
+	default:
+		return nil, fmt.Errorf("%s has no members to insert after; pass anchor or rewrite %s as a whole", parent, parent)
+	}
 }
 
 // extraSymbols lists symbols in after that are neither in before nor the target

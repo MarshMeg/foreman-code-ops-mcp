@@ -12,9 +12,10 @@ MCP-сервер и плагин для Claude Code, который делит �
 Claude вызывает `upsert_symbol` вместо `Edit`/`Write`. Каждый успешный вызов — один коммит
 с трейлерами `Foreman-Written-By`, `Foreman-Reviewed-By` и `Foreman-Attempts`.
 
-> **Статус: ранняя разработка (этап 5).** Go поддерживается целиком: генерация под размер слота,
-> гейт и цикл исправлений, ревью и фолбэк облачным валидатором, коммиты с трейлерами, стиль
-> проекта, интеграция с графом кода и плагин для Claude Code. Дальше — адаптеры Python и TypeScript.
+> **Статус: ранняя разработка (этап 6).** Go, Python, TypeScript/JavaScript и TSX/JSX работают
+> целиком: генерация под размер слота, гейт и цикл исправлений, ревью и фолбэк облачным
+> валидатором, коммиты с трейлерами, стиль проекта, граф кода и плагин для Claude Code. Дальше —
+> связи между сервисами.
 > План развития — в [документе проекта](docs/design/plan-v4.ru.md).
 
 ## Поддержка
@@ -56,6 +57,19 @@ Claude вызывает `upsert_symbol` вместо `Edit`/`Write`. Кажды�
 
 С плагином инструменты называются `mcp__plugin_foreman-code-ops_foreman__<tool>`, при записи в
 `.mcp.json` проекта — `mcp__foreman__<tool>`.
+
+## Языки
+
+| Язык | Файлы | Исправление | Проверка | Тесты |
+|---|---|---|---|---|
+| Go | .go | goimports | `go build` (модуль), `go vet` | `go test -run` |
+| Python | .py .pyi | ruff (импорты, формат) | ruff, pyright или mypy | pytest `-k` |
+| TypeScript | .ts .mts .cts | biome или prettier | `tsc` (проект), biome lint или eslint | vitest или jest `-t` |
+| TSX/JSX | .tsx .jsx | то же | то же | то же |
+| JavaScript | .js .mjs .cjs | то же | `tsc` при `checkJs`, biome lint или eslint | то же |
+
+Инструменты ищутся в `node_modules/.bin`, `.venv/bin` и PATH и выбираются по конфигам проекта. У
+Python нет компилятора, поэтому поставьте pyright (или mypy) и не отключайте валидатор.
 
 ## Настройка
 

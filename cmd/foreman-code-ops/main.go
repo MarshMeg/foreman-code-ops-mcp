@@ -157,6 +157,7 @@ func initProject(args []string, stderr io.Writer) error {
 	noPerms := fs.Bool("no-permissions", false, "do not add permissions.deny rules to .claude/settings.json")
 	mcpEntry := fs.Bool("mcp", false, "register the server in the project's .mcp.json (not needed with the plugin)")
 	binary := fs.String("binary", "foreman-code-ops", "command written to .mcp.json")
+	extFlag := fs.String("extensions", "", "comma-separated extensions to route through foreman (default: by detected languages)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -164,13 +165,9 @@ func initProject(args []string, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	reg, err := builtin.Registry()
+	exts, err := initExtensions(root, *extFlag)
 	if err != nil {
 		return err
-	}
-	var exts []string
-	for _, a := range reg.All() {
-		exts = append(exts, a.Extensions()...)
 	}
 	rep, err := setup.Init(setup.Options{Root: root, Extensions: exts, Permissions: !*noPerms,
 		MCP: *mcpEntry, Binary: *binary, ForceWorkspace: *force})
@@ -182,6 +179,37 @@ func initProject(args []string, stderr io.Writer) error {
 	}
 	fmt.Fprintln(stderr, "next: review and commit these files; ask Claude to create .foreman/style.md with style_set")
 	return nil
+}
+
+// initExtensions picks the extensions whose direct edits are denied: the flag, or the
+// languages found in workspace.yaml and by service markers.
+func initExtensions(root, flagValue string) ([]string, error) {
+	if flagValue != "" {
+		var exts []string
+		for _, e := range strings.Split(flagValue, ",") {
+			if e = strings.TrimSpace(e); e != "" {
+				if !strings.HasPrefix(e, ".") {
+					e = "." + e
+				}
+				exts = append(exts, e)
+			}
+		}
+		return exts, nil
+	}
+	var langs []string
+	if p, err := project.Open(root); err == nil {
+		for _, s := range p.Workspace.Services {
+			langs = append(langs, s.Lang)
+		}
+	}
+	svcs, err := project.Discover(root)
+	if err != nil {
+		return nil, err
+	}
+	for _, s := range svcs {
+		langs = append(langs, s.Lang)
+	}
+	return setup.ExtensionsFor(langs), nil
 }
 
 // benchReview measures validator latency, cache hits and cost on a fixed review (plan §7a).

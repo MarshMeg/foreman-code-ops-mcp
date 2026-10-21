@@ -16,11 +16,16 @@ import (
 //	{packages}  package patterns of the touched files; expands like {files}
 //	{overlay}   path of a JSON file mapping changed files to their candidate content
 //	{tmp}       a scratch directory for this run
+//	{cache}     a stable per-root cache directory (incremental builds)
 //	{filter}    the test name filter (test step only)
 type Toolchain struct {
-	// RootMarkers locate the directory commands run in when no service covers a file (go.mod).
+	// RootMarkers locate the directory commands run in (go.mod, pyproject.toml, tsconfig.json).
 	RootMarkers []string `yaml:"root_markers"`
-	// Overlay is true when checks read candidate content through {overlay} instead of from disk.
+	// BinDirs are directories under the root searched for commands before PATH
+	// (node_modules/.bin, .venv/bin).
+	BinDirs []string `yaml:"bin_dirs"`
+	// Overlay is true when checks read candidate content through {overlay}. Otherwise the gate
+	// runs commands in a shadow copy of the root (symlinks plus the changed files).
 	Overlay bool `yaml:"overlay"`
 	// PackagePattern turns a directory relative to the root into a package argument ("./{dir}").
 	PackagePattern string `yaml:"package_pattern"`
@@ -35,8 +40,25 @@ type Toolchain struct {
 	Fix []Step `yaml:"fix"`
 	// Check steps report diagnostics; the gate stops at the first failing step.
 	Check []Step `yaml:"check"`
-	// Test runs tests on request.
-	Test *TestStep `yaml:"test"`
+	// Tests run on request; the first applicable entry is used.
+	Tests []TestStep `yaml:"tests"`
+}
+
+// Condition restricts a step to projects that use a tool.
+type Condition struct {
+	// Files: at least one exists in the root.
+	Files []string `yaml:"files"`
+	// NoFiles: none exists in the root.
+	NoFiles []string `yaml:"no_files"`
+	// Deps: package.json lists at least one in dependencies or devDependencies.
+	Deps []string `yaml:"deps"`
+	// Contains: file → substring; at least one file contains its substring.
+	Contains map[string]string `yaml:"contains"`
+}
+
+// IsZero reports whether the condition is empty (always true).
+func (c Condition) IsZero() bool {
+	return len(c.Files) == 0 && len(c.NoFiles) == 0 && len(c.Deps) == 0 && len(c.Contains) == 0
 }
 
 // Step is one gate step, either a built-in implementation or an external command.
@@ -44,7 +66,8 @@ type Step struct {
 	Name    string   `yaml:"name"`
 	Builtin string   `yaml:"builtin"`
 	Run     []string `yaml:"run"`
-	// Pattern parses diagnostics from the command output. Named groups: file, line, col, message.
+	// Pattern parses diagnostics from the command output. Named groups: file, line, col,
+	// message, and optionally severity (a value containing "warn" makes a warning).
 	// Non-matching lines continue the previous diagnostic.
 	Pattern string `yaml:"pattern"`
 	// Severity of parsed diagnostics: error (default) or warning. Warnings do not fail the gate.
@@ -52,13 +75,25 @@ type Step struct {
 	// Scope is "touched" (default: packages of the touched files) or "all" (the whole root,
 	// so that broken callers of a changed or deleted symbol are caught).
 	Scope string `yaml:"scope"`
+	// When restricts the step to projects matching the condition.
+	When Condition `yaml:"when"`
+	// Optional skips the step silently when its command is not installed.
+	Optional bool `yaml:"optional"`
+	// Group: of the applicable steps sharing a group, only the first runs (pyright or mypy).
+	Group string `yaml:"group"`
+	// OnlyMatches drops output lines that do not match Pattern (progress, summaries).
+	OnlyMatches bool `yaml:"only_matches"`
+	// Parser selects a structured output parser instead of Pattern: "eslint-json".
+	Parser string `yaml:"parser"`
 }
 
 // TestStep runs tests.
 type TestStep struct {
-	Run []string `yaml:"run"`
+	Name string   `yaml:"name"`
+	Run  []string `yaml:"run"`
 	// Filter is appended when a test filter is given, e.g. ["-run", "{filter}"].
-	Filter []string `yaml:"filter"`
+	Filter []string  `yaml:"filter"`
+	When   Condition `yaml:"when"`
 }
 
 // Validate checks internal consistency (built-in names are checked by the gate).
@@ -84,9 +119,17 @@ func (t Toolchain) Validate() error {
 		if s.Severity != "" && s.Severity != "error" && s.Severity != "warning" {
 			errs = append(errs, fmt.Errorf("step %q: severity must be error or warning", s.Name))
 		}
+		if s.Parser != "" && s.Parser != "eslint-json" {
+			errs = append(errs, fmt.Errorf("step %q: unknown parser %q", s.Name, s.Parser))
+		}
+		if s.OnlyMatches && s.Pattern == "" {
+			errs = append(errs, fmt.Errorf("step %q: only_matches needs a pattern", s.Name))
+		}
 	}
-	if t.Test != nil && len(t.Test.Run) == 0 {
-		errs = append(errs, errors.New("test: run is required"))
+	for i, ts := range t.Tests {
+		if len(ts.Run) == 0 {
+			errs = append(errs, fmt.Errorf("tests[%d]: run is required", i))
+		}
 	}
 	return errors.Join(errs...)
 }

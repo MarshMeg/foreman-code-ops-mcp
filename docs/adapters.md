@@ -5,6 +5,9 @@ Built-in adapters live in [`adapters/<lang>/`](../adapters) and are embedded int
 They are plain YAML plus tree-sitter queries, so a new language needs no Go code except
 registering its grammar in `internal/lang/builtin`.
 
+Built in: `go` (.go), `python` (.py, .pyi), `typescript` (.ts, .mts, .cts), `tsx` (.tsx, .jsx),
+`javascript` (.js, .mjs, .cjs).
+
 ## Layout
 
 ```
@@ -41,7 +44,22 @@ new_file:
     package {{.Package}}
   # Package name taken from sibling files (first submatch); falls back to the directory name.
   package_regexp: '(?m)^package\s+([A-Za-z_][A-Za-z0-9_]*)'
+
+prompt: prompt.md             # language guidance appended to the writer's system prompt
+imports_query: imports.scm    # captures import declarations as @import
+strip: [...]                  # regexes removed from generated code (package clause, imports)
+
+# Where inserted imports go when the file has none: after these top-level nodes
+# (expression_statement counts only as a lone string: a docstring or "use client").
+import_preamble: [comment, expression_statement]
+import_bare: "import {}"      # turns a bare module name into an import (Python)
+nested_members: true          # methods live inside the class body (Python, TypeScript)
 ```
+
+`body_fields` are looked up in the definition and its descendants, so the signature of
+`export const f = async () => { ... }` stops before the arrow function's body. A new member
+(`Class.method`) without `anchor` goes after the class's last member; with
+`nested_members` and no members yet, the call is rejected before any model call.
 
 Unknown keys are rejected.
 
@@ -124,8 +142,49 @@ toolchain:
   makes findings non-blocking. `scope: all` runs it on `all_packages` instead of the packages
   of the touched files.
 
-**Placeholders:** `{file}`, `{files}`, `{packages}`, `{overlay}`, `{tmp}`, `{filter}`. An argument
-that is exactly `{files}` or `{packages}` expands to several arguments.
+**Placeholders:** `{file}`, `{files}`, `{packages}`, `{overlay}`, `{tmp}`, `{cache}` (stable per
+root, for incremental builds), `{filter}`. An argument that is exactly `{files}` or `{packages}`
+expands to several arguments.
 
-Languages without overlay support (`overlay: false`) can check files on disk (`check` tool),
-but not unapplied candidates yet; that comes with the Python and TypeScript adapters.
+### Choosing tools per project
+
+```yaml
+bin_dirs: [node_modules/.bin]          # searched before PATH, relative to the root
+fix:
+  - name: biome
+    group: format                      # only the first applicable step of a group runs
+    when: {files: [biome.json, biome.jsonc]}
+    run: [biome, check, --write, "--stdin-file-path={file}"]
+  - name: prettier
+    group: format
+    run: [prettier, --stdin-filepath, "{file}"]
+check:
+  - name: pyright
+    group: typecheck                   # pyright if installed, else mypy
+    run: [pyright, "{files}"]
+    pattern: '^\s*(?P<file>/[^:]+\.pyi?):(?P<line>\d+):(?P<col>\d+) - (?P<severity>error|warning): (?P<message>.*)$'
+    only_matches: true                 # drop progress and summary lines
+tests:                                 # the first entry whose condition holds and command exists
+  - name: vitest
+    when: {deps: [vitest]}
+    run: [vitest, run, --reporter=dot]
+    filter: [-t, "{filter}"]
+```
+
+- `when`: `files` (any exists), `no_files` (none exists), `deps` (listed in package.json),
+  `contains` (`{tsconfig.json: checkJs}`).
+- `optional: true` skips a step whose command is not installed; grouped steps behave the same.
+  Other missing commands fail the gate with "not found", and `status` lists them for the
+  languages the project uses.
+- `parser: eslint-json` reads `eslint --format json` instead of a regex.
+- A `severity` group in `pattern` turns lines containing "warn" into warnings.
+
+### Checking candidates without touching files
+
+With `overlay: true` (Go) commands read candidates through `{overlay}`. Otherwise the gate syncs
+a **shadow root**: a copy of the service root under the user cache directory where the changed
+files hold the candidate. Unchanged files are copied once and then skipped by size and mtime;
+heavy directories (`node_modules`, `.git`, virtualenvs, build output) are symlinked. Files are
+copied rather than linked because Node and Python resolve symlinks to real paths (tests would
+import the old code) and hard links would let a tool write through to the project. Paths in tool
+output are mapped back to the project.

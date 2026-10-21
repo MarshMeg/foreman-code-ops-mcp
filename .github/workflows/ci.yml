@@ -22,6 +22,15 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      # Language toolchains for the Python and TypeScript adapter tests (skipped when missing).
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: pip install ruff pyright mypy pytest
+      - run: npm install -g typescript prettier @biomejs/biome eslint vitest
       - run: go vet ./...
       - run: go test -race ./...
       - run: go build ./cmd/foreman-code-ops

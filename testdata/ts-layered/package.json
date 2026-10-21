@@ -1,0 +1,6 @@
+{
+  "name": "books",
+  "private": true,
+  "type": "module",
+  "devDependencies": { "typescript": "*", "vitest": "*" }
+}

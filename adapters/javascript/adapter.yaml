@@ -1,0 +1,71 @@
+lang: javascript
+grammar: javascript
+extensions: [.js, .mjs, .cjs]
+symbols_query: symbols.scm
+imports_query: imports.scm
+prompt: prompt.md
+body_fields:
+  function: body
+  method: body
+  class: body
+  component: body
+leading_comments: [comment]
+# `export` / `export default` belong to the symbol.
+wrap_single: [export_statement]
+nested_members: true
+import_preamble: [comment, expression_statement]
+new_file:
+  template: ""
+strip:
+  - '(?ms)^import\s[^;]*?from\s*[''"][^''"]+[''"];?[ \t]*\n?'
+  - '(?m)^import\s+[''"][^''"]+[''"];?[ \t]*\n?'
+
+toolchain:
+  root_markers: [package.json, jsconfig.json, tsconfig.json]
+  bin_dirs: [node_modules/.bin]
+  overlay: false
+  all_packages: "."
+  insert_imports: {name: insert imports, builtin: insert-imports}
+  fix:
+    # biome when the project uses it (also organizes imports), else prettier.
+    - name: biome
+      group: format
+      when: {files: [biome.json, biome.jsonc]}
+      run: [biome, check, --write, "--stdin-file-path={file}"]
+    - name: prettier
+      group: format
+      run: [prettier, --stdin-filepath, "{file}"]
+  check:
+    # JavaScript is type-checked only when the project opted in with checkJs.
+    - name: tsc
+      group: typecheck
+      when: {contains: {tsconfig.json: checkJs}}
+      scope: all
+      run: [tsc, --noEmit, --pretty, "false", --preserveSymlinks, --incremental, --tsBuildInfoFile, "{cache}/tsc.tsbuildinfo", --project, tsconfig.json]
+      pattern: '^(?P<file>[^(\s][^(]*)\((?P<line>\d+),(?P<col>\d+)\): error (?P<message>.*)$'
+    - name: tsc (jsconfig)
+      group: typecheck
+      when: {contains: {jsconfig.json: checkJs}}
+      scope: all
+      run: [tsc, --noEmit, --pretty, "false", --preserveSymlinks, --incremental, --tsBuildInfoFile, "{cache}/tsc-js.tsbuildinfo", --project, jsconfig.json]
+      pattern: '^(?P<file>[^(\s][^(]*)\((?P<line>\d+),(?P<col>\d+)\): error (?P<message>.*)$'
+    - name: biome lint
+      group: lint
+      when: {files: [biome.json, biome.jsonc]}
+      run: [biome, lint, --reporter=github, "{files}"]
+      pattern: '^::(?P<severity>error|warning) title=[^,]*,file=(?P<file>[^,]+),line=(?P<line>\d+),endLine=\d+,col=(?P<col>\d+),endColumn=\d+::(?P<message>.*)$'
+      only_matches: true
+    - name: eslint
+      group: lint
+      when: {files: [eslint.config.js, eslint.config.mjs, eslint.config.cjs, eslint.config.ts, .eslintrc.json, .eslintrc.js, .eslintrc.cjs, .eslintrc.yml, .eslintrc]}
+      run: [eslint, --format, json, "{files}"]
+      parser: eslint-json
+  tests:
+    - name: vitest
+      when: {deps: [vitest]}
+      run: [vitest, run, --reporter=dot]
+      filter: [-t, "{filter}"]
+    - name: jest
+      when: {deps: [jest]}
+      run: [jest, --ci]
+      filter: [-t, "{filter}"]

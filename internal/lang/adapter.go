@@ -48,6 +48,14 @@ type Adapter interface {
 	Imports(src []byte) ([]string, error)
 	// Sanitize removes parts a model should not have produced (package clause, imports).
 	Sanitize(code string) string
+	// ImportPoint is the byte offset where new import lines go: after the last import, or
+	// after the file preamble (comments, docstring, directives).
+	ImportPoint(src []byte) (int, error)
+	// BareImport turns a bare module name into an import statement ("import {}"); "" when
+	// the language needs more than a module name.
+	BareImport() string
+	// NestedMembers is true when methods live inside their class body (Python, TypeScript).
+	NestedMembers() bool
 }
 
 // ErrNotFound is returned (wrapped in *NotFoundError) when a symbol does not exist.

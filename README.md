@@ -12,10 +12,10 @@ An MCP server and Claude Code plugin that splits coding work between models:
 Claude calls `upsert_symbol` instead of `Edit`/`Write`; each successful call is one commit with
 `Foreman-Written-By`, `Foreman-Reviewed-By` and `Foreman-Attempts` trailers.
 
-> **Status: early development (stage 5).** Go is supported end to end: generation fitted to the
-> slot, gate and fix loop, review and fallback by a cloud validator, commits with trailers, the
-> project style guide, code graph integration and the Claude Code plugin. Python and TypeScript
-> adapters are next. See the
+> **Status: early development (stage 6).** Go, Python, TypeScript/JavaScript and TSX/JSX work end
+> to end: generation fitted to the slot, gate and fix loop, review and fallback by a cloud
+> validator, commits with trailers, style guide, code graph integration and the Claude Code
+> plugin. Cross-service links are next. See the
 > [design plan](docs/design/plan-v4.ru.md) (Russian) for the roadmap.
 
 ## Supported
@@ -57,6 +57,19 @@ Claude calls `upsert_symbol` instead of `Edit`/`Write`; each successful call is 
 
 With the plugin, the tools are named `mcp__plugin_foreman-code-ops_foreman__<tool>`; with a
 project `.mcp.json` entry, `mcp__foreman__<tool>`.
+
+## Languages
+
+| Language | Files | Fix | Check | Tests |
+|---|---|---|---|---|
+| Go | .go | goimports | `go build` (module), `go vet` | `go test -run` |
+| Python | .py .pyi | ruff (imports, format) | ruff, pyright or mypy | pytest `-k` |
+| TypeScript | .ts .mts .cts | biome or prettier | `tsc` (project), biome lint or eslint | vitest or jest `-t` |
+| TSX/JSX | .tsx .jsx | same | same | same |
+| JavaScript | .js .mjs .cjs | same | `tsc` with `checkJs`, biome lint or eslint | same |
+
+Tools are found in `node_modules/.bin`, `.venv/bin` or PATH and chosen by the project's config
+files. Python has no compiler, so install pyright (or mypy) and keep the validator on.
 
 ## Configure
 

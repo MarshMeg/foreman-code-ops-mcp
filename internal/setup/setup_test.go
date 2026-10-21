@@ -108,3 +108,18 @@ func TestInitRejectsBrokenSettings(t *testing.T) {
 		t.Fatal("broken settings overwritten")
 	}
 }
+
+func TestExtensionsFor(t *testing.T) {
+	cases := map[string][]string{
+		".go":                                  {"go"},
+		".go .py .pyi":                         {"go", "python"},
+		".cts .jsx .mts .ts .tsx":              {"typescript", "javascript"},
+		".js .jsx":                             {"javascript"},
+		".cts .go .jsx .mts .py .pyi .ts .tsx": {"python", "typescript", "go"},
+	}
+	for want, langs := range cases {
+		if got := strings.Join(ExtensionsFor(langs), " "); got != want {
+			t.Errorf("%v: got %s, want %s", langs, got, want)
+		}
+	}
+}
