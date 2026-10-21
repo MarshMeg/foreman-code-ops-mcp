@@ -5,5 +5,5 @@ import "embed"
 
 // FS holds one directory per language.
 //
-//go:embed */*.yaml */*.scm
+//go:embed */*.yaml */*.scm */*.md
 var FS embed.FS

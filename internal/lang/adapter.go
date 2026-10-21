@@ -42,6 +42,12 @@ type Adapter interface {
 	NewFile(path string, opts NewFileOpts) ([]byte, error)
 	// Toolchain describes the gate steps for this language.
 	Toolchain() Toolchain
+	// PromptFragment is language guidance appended to the generator's system prompt.
+	PromptFragment() string
+	// Imports returns the import declarations of a file, as source text.
+	Imports(src []byte) ([]string, error)
+	// Sanitize removes parts a model should not have produced (package clause, imports).
+	Sanitize(code string) string
 }
 
 // ErrNotFound is returned (wrapped in *NotFoundError) when a symbol does not exist.

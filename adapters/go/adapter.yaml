@@ -33,3 +33,12 @@ toolchain:
   test:
     run: [go, test, -overlay, "{overlay}", "{packages}"]
     filter: [-run, "{filter}"]
+
+prompt: prompt.md
+imports_query: imports.scm
+# Models sometimes add a package clause or imports despite instructions; goimports restores
+# whatever the code actually needs.
+strip:
+  - '(?m)^package\s+\w+\s*$'
+  - '(?ms)^import\s*\(.*?^\)\s*$'
+  - '(?m)^import\s+.*$'

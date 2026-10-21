@@ -42,6 +42,12 @@ type Spec struct {
 	NewFile    NewFile  `yaml:"new_file"`
 	// Toolchain configures the gate: import insertion, fixers, checks and tests.
 	Toolchain lang.Toolchain `yaml:"toolchain"`
+	// Prompt is a Markdown file with language guidance for the generator.
+	Prompt string `yaml:"prompt"`
+	// ImportsQuery is a .scm file capturing import declarations as @import.
+	ImportsQuery string `yaml:"imports_query"`
+	// Strip lists regular expressions removed from generated code.
+	Strip []string `yaml:"strip"`
 }
 
 // NewFile describes new file content.
@@ -57,6 +63,9 @@ type Adapter struct {
 	spec     Spec
 	language *ts.Language
 	query    *ts.Query
+	imports  *ts.Query
+	prompt   string
+	strip    []*regexp.Regexp
 	captures []capture
 	tmpl     *template.Template
 	pkgRe    *regexp.Regexp
@@ -97,7 +106,29 @@ func Load(fsys fs.FS, dir string, grammars map[string]unsafe.Pointer) (*Adapter,
 	if !ok {
 		return nil, fmt.Errorf("adapter %s: grammar %q is not compiled in", spec.Lang, spec.Grammar)
 	}
-	return New(spec, ts.NewLanguage(ptr), string(querySrc))
+	a, err := New(spec, ts.NewLanguage(ptr), string(querySrc))
+	if err != nil {
+		return nil, err
+	}
+	if spec.Prompt != "" {
+		b, err := fs.ReadFile(fsys, path.Join(dir, spec.Prompt))
+		if err != nil {
+			return nil, fmt.Errorf("adapter %s: %w", spec.Lang, err)
+		}
+		a.prompt = string(b)
+	}
+	if spec.ImportsQuery != "" {
+		b, err := fs.ReadFile(fsys, path.Join(dir, spec.ImportsQuery))
+		if err != nil {
+			return nil, fmt.Errorf("adapter %s: %w", spec.Lang, err)
+		}
+		q, qerr := ts.NewQuery(a.language, string(b))
+		if qerr != nil {
+			return nil, fmt.Errorf("adapter %s: imports query: %s", spec.Lang, qerr.Error())
+		}
+		a.imports = q
+	}
+	return a, nil
 }
 
 // New builds an adapter from a parsed spec.
@@ -113,6 +144,13 @@ func New(spec Spec, language *ts.Language, symbolsQuery string) (*Adapter, error
 		return nil, fmt.Errorf("adapter %s: symbols query: %s", spec.Lang, qerr.Error())
 	}
 	a := &Adapter{spec: spec, language: language, query: q}
+	for _, expr := range spec.Strip {
+		re, err := regexp.Compile(expr)
+		if err != nil {
+			return nil, fmt.Errorf("adapter %s: strip: %w", spec.Lang, err)
+		}
+		a.strip = append(a.strip, re)
+	}
 	var hasDef, hasName bool
 	for _, name := range q.CaptureNames() {
 		c := capture{}
@@ -147,8 +185,53 @@ func (a *Adapter) Lang() string              { return a.spec.Lang }
 func (a *Adapter) Toolchain() lang.Toolchain { return a.spec.Toolchain }
 func (a *Adapter) Extensions() []string      { return a.spec.Extensions }
 
-// Close releases the compiled query.
-func (a *Adapter) Close() { a.query.Close() }
+// Close releases the compiled queries.
+func (a *Adapter) Close() {
+	a.query.Close()
+	if a.imports != nil {
+		a.imports.Close()
+	}
+}
+
+// PromptFragment implements lang.Adapter.
+func (a *Adapter) PromptFragment() string { return a.prompt }
+
+// Sanitize implements lang.Adapter.
+func (a *Adapter) Sanitize(code string) string {
+	for _, re := range a.strip {
+		code = re.ReplaceAllString(code, "")
+	}
+	return strings.Trim(code, "\n")
+}
+
+// Imports implements lang.Adapter.
+func (a *Adapter) Imports(src []byte) ([]string, error) {
+	if a.imports == nil {
+		return nil, nil
+	}
+	parser := ts.NewParser()
+	defer parser.Close()
+	if err := parser.SetLanguage(a.language); err != nil {
+		return nil, err
+	}
+	tree := parser.Parse(src, nil)
+	if tree == nil {
+		return nil, fmt.Errorf("%s: parse failed", a.spec.Lang)
+	}
+	defer tree.Close()
+	cursor := ts.NewQueryCursor()
+	defer cursor.Close()
+	var out []string
+	matches := cursor.Matches(a.imports, tree.RootNode(), src)
+	for m := matches.Next(); m != nil; m = matches.Next() {
+		for _, c := range m.Captures {
+			if a.imports.CaptureNames()[c.Index] == "import" {
+				out = append(out, c.Node.Utf8Text(src))
+			}
+		}
+	}
+	return out, nil
+}
 
 type rawDef struct {
 	pattern uint

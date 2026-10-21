@@ -107,10 +107,7 @@ func TestStyleGet(t *testing.T) {
 func TestStubsReturnToolErrorAndJournal(t *testing.T) {
 	var buf bytes.Buffer
 	cs := connect(t, Deps{Config: config.Default(), Journal: journal.New(&buf)})
-	res := call(t, cs, "upsert_symbol", map[string]any{
-		"file": "a.go", "symbol": "F", "kind": "function", "spec": "s", "interface": "func F()",
-		"run_tests": true, "limits": map[string]any{"max_reviews": 1, "check_timeout": "10s"},
-	})
+	res := call(t, cs, "style_set", map[string]any{"content": "# Style"})
 	if !res.IsError {
 		t.Fatal("expected tool error from stub")
 	}
@@ -122,7 +119,7 @@ func TestStubsReturnToolErrorAndJournal(t *testing.T) {
 	if err := json.Unmarshal(buf.Bytes(), &e); err != nil {
 		t.Fatalf("journal %q: %v", buf.String(), err)
 	}
-	if e.Tool != "upsert_symbol" || e.Status != "error" {
+	if e.Tool != "style_set" || e.Status != "error" {
 		t.Fatalf("journal entry %+v", e)
 	}
 }

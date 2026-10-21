@@ -149,3 +149,18 @@ func TestGoNewFile(t *testing.T) {
 		t.Errorf("explicit: %q", b)
 	}
 }
+
+func TestGoImportsAndSanitize(t *testing.T) {
+	a := goAdapter(t)
+	imps, err := a.Imports(fixture(t, "internal/service/book.go"))
+	if err != nil || len(imps) != 1 || !strings.Contains(imps[0], `"example.com/books/internal/repo"`) {
+		t.Fatalf("imports = %q %v", imps, err)
+	}
+	code := "package service\n\nimport (\n\t\"fmt\"\n)\nimport \"os\"\n\n// F does.\nfunc F() { fmt.Println(os.Args) }\n"
+	if got := a.Sanitize(code); got != "// F does.\nfunc F() { fmt.Println(os.Args) }" {
+		t.Fatalf("sanitize = %q", got)
+	}
+	if !strings.Contains(a.PromptFragment(), "## Go") {
+		t.Fatal("prompt fragment missing")
+	}
+}

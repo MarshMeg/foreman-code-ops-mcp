@@ -41,7 +41,8 @@ type TestResult = gate.TestResult
 
 // UpsertSymbolOutput is the result of upsert_symbol.
 type UpsertSymbolOutput struct {
-	Status      string       `json:"status" jsonschema:"applied or failed"`
+	Status      string       `json:"status" jsonschema:"applied, failed (nothing written) or refused (uncommitted user changes)"`
+	Message     string       `json:"message,omitempty"`
 	Symbol      string       `json:"symbol"`
 	Signature   string       `json:"signature,omitempty"`
 	Diff        string       `json:"diff,omitempty"`
@@ -52,6 +53,9 @@ type UpsertSymbolOutput struct {
 	Diagnostics []Diagnostic `json:"diagnostics"`
 	Tests       TestResult   `json:"tests"`
 	LastCode    string       `json:"last_code,omitempty" jsonschema:"last candidate when status is failed"`
+	Warnings    []string     `json:"warnings,omitempty"`
+
+	file string // for the journal
 }
 
 // GetSymbolOutput is the result of get_symbol.

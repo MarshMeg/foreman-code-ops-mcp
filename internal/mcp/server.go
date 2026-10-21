@@ -54,7 +54,7 @@ func NewServer(d Deps) *sdk.Server {
 		Description: "Create or replace a function, method, type, class, interface or component. " +
 			"The generator writes the code; imports are fixed, the file is formatted, linted and built; the validator (if enabled) reviews it; " +
 			"on success the change is committed and the new signature returned. On failure, diagnostics and the last candidate are returned.",
-	}, notImplemented[UpsertSymbolInput, UpsertSymbolOutput]("upsert_symbol", 3))
+	}, h.upsertSymbol)
 
 	add(h, s, &sdk.Tool{
 		Name:        "get_symbol",
@@ -117,6 +117,9 @@ func add[In, Out any](h *handlers, s *sdk.Server, t *sdk.Tool, fn sdk.ToolHandle
 		start := time.Now()
 		res, out, err := fn(ctx, req, in)
 		e := journal.Entry{Tool: t.Name, Status: "ok", DurationMS: time.Since(start).Milliseconds()}
+		if j, ok := any(out).(journaled); ok && err == nil {
+			j.journal(&e)
+		}
 		if err != nil {
 			e.Status, e.Error = "error", err.Error()
 			h.d.Logger.Warn("tool failed", "tool", t.Name, "err", err)
@@ -129,6 +132,9 @@ func add[In, Out any](h *handlers, s *sdk.Server, t *sdk.Tool, fn sdk.ToolHandle
 		return res, out, err
 	})
 }
+
+// journaled outputs add details to their journal entry.
+type journaled interface{ journal(*journal.Entry) }
 
 // schemaOpts teaches schema inference about types with custom JSON encodings.
 var schemaOpts = &jsonschema.ForOptions{
@@ -170,7 +176,7 @@ func (h *handlers) styleGet(context.Context, *sdk.CallToolRequest, struct{}) (*s
 	return nil, StyleOutput{Exists: true, Content: string(b)}, nil
 }
 
-func (h *handlers) status(context.Context, *sdk.CallToolRequest, struct{}) (*sdk.CallToolResult, StatusOutput, error) {
+func (h *handlers) status(ctx context.Context, _ *sdk.CallToolRequest, _ struct{}) (*sdk.CallToolResult, StatusOutput, error) {
 	c := h.d.Config
 	out := StatusOutput{
 		Version: h.d.Version,
@@ -192,6 +198,10 @@ func (h *handlers) status(context.Context, *sdk.CallToolRequest, struct{}) (*sdk
 		Warnings: []string{},
 	}
 	if h.d.Ops != nil {
+		slots, slotCtx, running, waiting, warnings := h.d.Ops.GeneratorStatus(ctx)
+		out.Generator.Slots, out.Generator.SlotCtx = slots, slotCtx
+		out.Queue = QueueStatus{Running: running, Waiting: waiting}
+		out.Warnings = append(out.Warnings, warnings...)
 		out.Warnings = append(out.Warnings, h.d.Ops.ToolWarnings()...)
 	}
 	if !out.Validator.Enabled {
@@ -256,4 +266,45 @@ func (h *handlers) check(ctx context.Context, _ *sdk.CallToolRequest, in CheckIn
 func (h *handlers) runTests(ctx context.Context, _ *sdk.CallToolRequest, in RunTestsInput) (*sdk.CallToolResult, TestResult, error) {
 	res, err := h.d.Ops.RunTests(ctx, in.Target, in.Filter)
 	return nil, res, err
+}
+
+func (h *handlers) upsertSymbol(ctx context.Context, _ *sdk.CallToolRequest, in UpsertSymbolInput) (*sdk.CallToolResult, UpsertSymbolOutput, error) {
+	req := ops.UpsertRequest{
+		File: in.File, Symbol: in.Symbol, Kind: in.Kind, Spec: in.Spec, Interface: in.Interface,
+		Anchor: in.Anchor, Mode: in.Mode, Package: in.Package, CommitMessage: in.CommitMessage, Limits: in.Limits,
+	}
+	for _, r := range in.Context {
+		req.Context = append(req.Context, ops.Ref{File: r.File, Symbol: r.Symbol})
+	}
+	switch v := in.RunTests.(type) {
+	case nil:
+	case bool:
+		req.RunTests = v
+	case string:
+		req.RunTests, req.TestFilter = true, v
+	default:
+		return nil, UpsertSymbolOutput{}, fmt.Errorf("run_tests must be a boolean or a test filter string, got %T", v)
+	}
+	r, err := h.d.Ops.Upsert(ctx, req)
+	if err != nil {
+		return nil, UpsertSymbolOutput{}, err
+	}
+	out := UpsertSymbolOutput{
+		Status: r.Status, Message: r.Message, Symbol: r.Symbol, Signature: r.Signature, Diff: r.Diff, Commit: r.Commit,
+		WrittenBy: r.WrittenBy, Attempts: Attempts{BuildFixes: r.BuildFixes, Reviews: r.Reviews},
+		MinorNotes: []string{}, Diagnostics: r.Diagnostics, LastCode: r.LastCode, Warnings: r.Warnings,
+		file: req.File,
+	}
+	if out.Diagnostics == nil {
+		out.Diagnostics = []Diagnostic{}
+	}
+	if r.Tests != nil {
+		out.Tests = *r.Tests
+	}
+	return nil, out, nil
+}
+
+func (o UpsertSymbolOutput) journal(e *journal.Entry) {
+	e.File, e.Symbol, e.Status, e.WrittenBy = o.file, o.Symbol, o.Status, o.WrittenBy
+	e.BuildFixes, e.Reviews, e.Commit = o.Attempts.BuildFixes, o.Attempts.Reviews, o.Commit
 }

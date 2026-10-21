@@ -13,7 +13,7 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func connectProject(t *testing.T, dir string) *sdk.ClientSession {
+func connectProject(t *testing.T, dir string, mutate ...func(*config.Config)) *sdk.ClientSession {
 	t.Helper()
 	proj, err := project.Open(dir)
 	if err != nil {
@@ -24,6 +24,9 @@ func connectProject(t *testing.T, dir string) *sdk.ClientSession {
 		t.Fatal(err)
 	}
 	cfg := config.Default()
+	for _, m := range mutate {
+		m(&cfg)
+	}
 	o, err := ops.New(proj, reg, cfg, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -80,5 +83,28 @@ func TestE2ECheckAndRunTests(t *testing.T) {
 	tr := decode[TestResult](t, call(t, cs, "run_tests", map[string]any{"target": "internal/domain"}))
 	if !tr.Ran || tr.Passed || !strings.Contains(tr.Output, "boom") {
 		t.Fatalf("run_tests = %+v", tr)
+	}
+}
+
+func TestE2EUpsertSymbol(t *testing.T) {
+	dir := tu.RepoFromFixture(t, "../../testdata/go-layered")
+	llm := tu.NewFakeLLM(t, tu.Answer{Code: "// Count returns the number of books.\nfunc (s *BookService) Count(ctx context.Context) (int, error) {\n\treturn 0, nil\n}"})
+	llm.Slots = 2
+	cs := connectProject(t, dir, func(c *config.Config) { c.Generator.BaseURL, c.Generator.Model = llm.URL, "m" })
+
+	out := decode[UpsertSymbolOutput](t, call(t, cs, "upsert_symbol", map[string]any{
+		"file": "internal/service/book.go", "symbol": "BookService.Count", "kind": "method",
+		"spec": "always zero", "interface": "func (s *BookService) Count(ctx context.Context) (int, error)",
+		"context":   []map[string]any{{"file": "internal/domain/book.go", "symbol": "Book"}},
+		"run_tests": "TestNothing",
+		"limits":    map[string]any{"max_build_fixes": 1, "check_timeout": "60s"},
+	}))
+	if out.Status != "applied" || out.Commit == "" || out.WrittenBy != "local" || !out.Tests.Ran || !strings.Contains(out.Diff, "+\treturn 0, nil") {
+		t.Fatalf("upsert = %+v", out)
+	}
+
+	st := decode[StatusOutput](t, call(t, cs, "status", map[string]any{}))
+	if st.Generator.Slots != 2 || !strings.Contains(strings.Join(st.Warnings, "\n"), "llama-server has 2") {
+		t.Fatalf("status = %+v", st)
 	}
 }

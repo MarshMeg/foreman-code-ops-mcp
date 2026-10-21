@@ -49,12 +49,15 @@ type Ops struct {
 	proj *project.Project
 	reg  *lang.Registry
 	gate *gate.Gate
+	gen  *generator
 	cfg  config.Config
 	log  *slog.Logger
 
 	// mu serializes read-modify-commit sequences so commits never interleave.
-	mu   sync.Mutex
-	repo *gitops.Repo
+	mu sync.Mutex
+
+	repoMu sync.Mutex
+	repo   *gitops.Repo
 }
 
 // New creates Ops for a project.
@@ -66,13 +69,15 @@ func New(proj *project.Project, reg *lang.Registry, cfg config.Config, log *slog
 	if err != nil {
 		return nil, err
 	}
-	return &Ops{proj: proj, reg: reg, gate: g, cfg: cfg, log: log}, nil
+	return &Ops{proj: proj, reg: reg, gate: g, gen: newGenerator(cfg), cfg: cfg, log: log}, nil
 }
 
 // Project returns the project.
 func (o *Ops) Project() *project.Project { return o.proj }
 
 func (o *Ops) gitRepo(ctx context.Context) (*gitops.Repo, error) {
+	o.repoMu.Lock()
+	defer o.repoMu.Unlock()
 	if o.repo != nil {
 		return o.repo, nil
 	}
@@ -350,4 +355,13 @@ func (o *Ops) commit(ctx context.Context, cs *workspace.Changeset, msg gitops.Me
 	}
 	o.log.Info("committed", "commit", hash, "files", files, "subject", msg.Subject)
 	return Result{Status: StatusApplied, Diff: diff, Commit: hash, Warnings: warnings}, nil
+}
+
+// GeneratorStatus reports effective slots, queue and generator warnings.
+func (o *Ops) GeneratorStatus(ctx context.Context) (slots, slotCtx, running, waiting int, warnings []string) {
+	if o.gen.p != nil {
+		o.gen.reconcile(ctx)
+	}
+	slots, running, waiting = o.gen.sched.Stats()
+	return slots, o.gen.effectiveSlotCtx(), running, waiting, o.gen.status()
 }
