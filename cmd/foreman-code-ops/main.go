@@ -27,6 +27,7 @@ import (
 	"github.com/MarshMeg/foreman-code-ops/internal/ops"
 	"github.com/MarshMeg/foreman-code-ops/internal/project"
 	"github.com/MarshMeg/foreman-code-ops/internal/providers"
+	"github.com/MarshMeg/foreman-code-ops/internal/setup"
 )
 
 // version is set at build time via -ldflags "-X main.version=...".
@@ -146,12 +147,16 @@ func printConfig(args []string, stderr io.Writer) error {
 	return config.Write(os.Stdout, cfg)
 }
 
-// initProject writes a draft .foreman/workspace.yaml from discovered service roots.
+// initProject prepares a project: services draft, Claude Code deny rules for files foreman
+// edits, optional .mcp.json entry, and a .gitignore line for runtime files.
 func initProject(args []string, stderr io.Writer) error {
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	dir := fs.String("project", ".", "project root")
-	force := fs.Bool("force", false, "overwrite an existing workspace.yaml")
+	force := fs.Bool("force", false, "regenerate an existing .foreman/workspace.yaml")
+	noPerms := fs.Bool("no-permissions", false, "do not add permissions.deny rules to .claude/settings.json")
+	mcpEntry := fs.Bool("mcp", false, "register the server in the project's .mcp.json (not needed with the plugin)")
+	binary := fs.String("binary", "foreman-code-ops", "command written to .mcp.json")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -159,26 +164,23 @@ func initProject(args []string, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	path := project.WorkspacePath(root)
-	if _, err := os.Stat(path); err == nil && !*force {
-		return fmt.Errorf("%s already exists (use --force to overwrite)", path)
-	}
-	svcs, err := project.Discover(root)
+	reg, err := builtin.Registry()
 	if err != nil {
 		return err
 	}
-	data, err := project.MarshalWorkspace(project.Workspace{Services: svcs})
+	var exts []string
+	for _, a := range reg.All() {
+		exts = append(exts, a.Extensions()...)
+	}
+	rep, err := setup.Init(setup.Options{Root: root, Extensions: exts, Permissions: !*noPerms,
+		MCP: *mcpEntry, Binary: *binary, ForceWorkspace: *force})
+	for _, l := range rep.Lines {
+		fmt.Fprintln(stderr, l)
+	}
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return err
-	}
-	fmt.Fprintf(stderr, "wrote %s with %d service(s); review it and commit it\n", path, len(svcs))
-	os.Stdout.Write(data)
+	fmt.Fprintln(stderr, "next: review and commit these files; ask Claude to create .foreman/style.md with style_set")
 	return nil
 }
 

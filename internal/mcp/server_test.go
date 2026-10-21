@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -14,6 +12,7 @@ import (
 
 	"github.com/MarshMeg/foreman-code-ops/internal/config"
 	"github.com/MarshMeg/foreman-code-ops/internal/journal"
+	tu "github.com/MarshMeg/foreman-code-ops/internal/testutil"
 )
 
 func connect(t *testing.T, d Deps) *sdk.ClientSession {
@@ -88,38 +87,43 @@ func TestStatus(t *testing.T) {
 	}
 }
 
-func TestStyleGet(t *testing.T) {
-	dir := t.TempDir()
-	cs := connect(t, Deps{ProjectDir: dir, Config: config.Default()})
+func TestStyleTools(t *testing.T) {
+	dir := tu.RepoFromFixture(t, "../../testdata/go-layered")
+	cs := connectProject(t, dir)
 
 	if st := decode[StyleOutput](t, call(t, cs, "style_get", map[string]any{})); st.Exists {
 		t.Fatal("style should not exist yet")
 	}
-	path := filepath.Join(dir, config.DirName, "style.md")
-	os.MkdirAll(filepath.Dir(path), 0o755)
-	os.WriteFile(path, []byte("## Go\nwrap errors\n"), 0o644)
+	set := decode[ChangeOutput](t, call(t, cs, "style_set", map[string]any{"content": "# Style\n\n## Go\nWrap errors.\n"}))
+	if set.Status != "applied" || set.Commit == "" {
+		t.Fatalf("style_set = %+v", set)
+	}
+	set = decode[ChangeOutput](t, call(t, cs, "style_set", map[string]any{"section": "Logging", "content": "Use slog."}))
+	if set.Status != "applied" {
+		t.Fatalf("style_set section = %+v", set)
+	}
 	st := decode[StyleOutput](t, call(t, cs, "style_get", map[string]any{}))
-	if !st.Exists || !strings.Contains(st.Content, "wrap errors") {
-		t.Fatalf("got %+v", st)
+	if !st.Exists || strings.Join(st.Sections, ",") != "Go,Logging" || !strings.Contains(st.Content, "Use slog.") {
+		t.Fatalf("style_get = %+v", st)
+	}
+	if got := tu.Git(t, dir, "log", "-1", "--format=%s"); got != "foreman: style: update section Logging\n" {
+		t.Fatalf("subject = %q", got)
 	}
 }
 
-func TestStubsReturnToolErrorAndJournal(t *testing.T) {
+func TestToolErrorsAreJournaled(t *testing.T) {
+	dir := tu.RepoFromFixture(t, "../../testdata/go-layered")
 	var buf bytes.Buffer
-	cs := connect(t, Deps{Config: config.Default(), Journal: journal.New(&buf)})
-	res := call(t, cs, "style_set", map[string]any{"content": "# Style"})
+	cs := connectProjectWith(t, dir, journal.New(&buf))
+	res := call(t, cs, "get_symbol", map[string]any{"file": "../outside.go", "symbol": "X"})
 	if !res.IsError {
-		t.Fatal("expected tool error from stub")
-	}
-	text := res.Content[0].(*sdk.TextContent).Text
-	if !strings.Contains(text, "not implemented") {
-		t.Fatalf("error text = %q", text)
+		t.Fatal("expected tool error")
 	}
 	var e journal.Entry
 	if err := json.Unmarshal(buf.Bytes(), &e); err != nil {
 		t.Fatalf("journal %q: %v", buf.String(), err)
 	}
-	if e.Tool != "style_set" || e.Status != "error" {
+	if e.Tool != "get_symbol" || e.Status != "error" || !strings.Contains(e.Error, "escapes") {
 		t.Fatalf("journal entry %+v", e)
 	}
 }

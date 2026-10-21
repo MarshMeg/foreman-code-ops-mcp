@@ -3,12 +3,8 @@ package mcp
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io/fs"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"reflect"
 	"time"
 
@@ -97,9 +93,10 @@ func NewServer(d Deps) *sdk.Server {
 	}, h.styleGet)
 
 	add(h, s, &sdk.Tool{
-		Name:        "style_set",
-		Description: "Create or update .foreman/style.md (whole file or one '## Section') and commit. Write it in English.",
-	}, notImplemented[StyleSetInput, StyleOutput]("style_set", 5))
+		Name: "style_set",
+		Description: "Create or update .foreman/style.md (the whole file, or one '## Section' which is replaced or appended) and commit. " +
+			"Write it in English. Language sections are named after the language (## Go, ## Python, ## TypeScript); the generator sees the common part and its language's section.",
+	}, h.styleSet)
 
 	add(h, s, &sdk.Tool{
 		Name:        "status",
@@ -153,29 +150,20 @@ func mustSchema[T any]() *jsonschema.Schema {
 	return sch
 }
 
-// errNotImplemented marks tools whose implementation lands in a later stage.
-var errNotImplemented = errors.New("not implemented yet")
-
-func notImplemented[In, Out any](name string, stage int) sdk.ToolHandlerFor[In, Out] {
-	return func(context.Context, *sdk.CallToolRequest, In) (*sdk.CallToolResult, Out, error) {
-		var zero Out
-		return nil, zero, fmt.Errorf("%s: %w (planned for stage %d)", name, errNotImplemented, stage)
-	}
-}
-
-func (h *handlers) stylePath() string {
-	return filepath.Join(h.d.ProjectDir, config.DirName, "style.md")
-}
-
 func (h *handlers) styleGet(context.Context, *sdk.CallToolRequest, struct{}) (*sdk.CallToolResult, StyleOutput, error) {
-	b, err := os.ReadFile(h.stylePath())
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil, StyleOutput{Exists: false}, nil
-	}
+	info, err := h.d.Ops.StyleGet()
 	if err != nil {
 		return nil, StyleOutput{}, err
 	}
-	return nil, StyleOutput{Exists: true, Content: string(b)}, nil
+	out := StyleOutput{Exists: info.Exists, Content: info.Content, Sections: info.Sections}
+	if out.Sections == nil {
+		out.Sections = []string{}
+	}
+	return nil, out, nil
+}
+
+func (h *handlers) styleSet(ctx context.Context, _ *sdk.CallToolRequest, in StyleSetInput) (*sdk.CallToolResult, ChangeOutput, error) {
+	return changeResult(h.d.Ops.StyleSet(ctx, in.Section, in.Content))
 }
 
 func (h *handlers) status(ctx context.Context, _ *sdk.CallToolRequest, _ struct{}) (*sdk.CallToolResult, StatusOutput, error) {
@@ -205,6 +193,7 @@ func (h *handlers) status(ctx context.Context, _ *sdk.CallToolRequest, _ struct{
 		out.Queue = QueueStatus{Running: running, Waiting: waiting}
 		out.Warnings = append(out.Warnings, warnings...)
 		out.Warnings = append(out.Warnings, h.d.Ops.ToolWarnings()...)
+		out.Graph.Provider, out.Graph.Available, out.Graph.Reason = h.d.Ops.GraphStatus(ctx)
 	}
 	if !out.Validator.Enabled {
 		out.Warnings = append(out.Warnings, "validator disabled: the build/lint gate is the only check")

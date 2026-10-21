@@ -12,10 +12,9 @@ MCP-сервер и плагин для Claude Code, который делит �
 Claude вызывает `upsert_symbol` вместо `Edit`/`Write`. Каждый успешный вызов — один коммит
 с трейлерами `Foreman-Written-By`, `Foreman-Reviewed-By` и `Foreman-Attempts`.
 
-> **Статус: ранняя разработка (этап 4).** Для Go работает весь конвейер: генерация под размер
-> слота, гейт и цикл исправлений, ревью облачным валидатором (OpenRouter, Anthropic или любой
-> OpenAI-совместимый API), фолбэк на валидатор, `mode=direct`, коммит с трейлерами. Дальше —
-> инструменты стиля, граф кода и плагин. Подробнее — [docs/providers.md](docs/providers.md) (на английском).
+> **Статус: ранняя разработка (этап 5).** Go поддерживается целиком: генерация под размер слота,
+> гейт и цикл исправлений, ревью и фолбэк облачным валидатором, коммиты с трейлерами, стиль
+> проекта, интеграция с графом кода и плагин для Claude Code. Дальше — адаптеры Python и TypeScript.
 > План развития — в [документе проекта](docs/design/plan-v4.ru.md).
 
 ## Поддержка
@@ -30,31 +29,33 @@ Claude вызывает `upsert_symbol` вместо `Edit`/`Write`. Кажды�
 
 ## Установка
 
-```bash
-go install github.com/MarshMeg/foreman-code-ops/cmd/foreman-code-ops@latest
-```
+1. Установите сервер (нужен C-компилятор для грамматик tree-sitter):
 
-Подключите сервер в `.mcp.json` проекта:
+   ```bash
+   go install github.com/MarshMeg/foreman-code-ops/cmd/foreman-code-ops@latest
+   ```
 
-```json
-{
-  "mcpServers": {
-    "foreman": {
-      "command": "foreman-code-ops",
-      "args": ["--project", "${CLAUDE_PROJECT_DIR}"]
-    }
-  }
-}
-```
+2. Установите плагин для Claude Code (регистрация MCP-сервера и skill с правилами работы):
 
-Для монорепо можно описать сервисы:
+   ```
+   /plugin install foreman-code-ops --marketplace MarshMeg/foreman-code-ops
+   ```
 
-```bash
-foreman-code-ops init --project .
-```
+3. Подготовьте проект:
 
-создаёт черновик `.foreman/workspace.yaml` по маркерам `go.mod`, `package.json`, `tsconfig.json`
-и `pyproject.toml`.
+   ```bash
+   foreman-code-ops init --project .
+   ```
+
+   Команда создаёт черновик `.foreman/workspace.yaml`, добавляет в `.claude/settings.json`
+   правила `permissions.deny` вида `Edit(**/*.go)`, чтобы правки исходников шли через foreman,
+   и добавляет `.foreman/cache/` в `.gitignore`. Без плагина добавьте `--mcp`, чтобы прописать
+   сервер в `.mcp.json`.
+
+4. По желанию подключите граф кода ([docs/graph.md](docs/graph.md)), например codebase-memory-mcp.
+
+С плагином инструменты называются `mcp__plugin_foreman-code-ops_foreman__<tool>`, при записи в
+`.mcp.json` проекта — `mcp__foreman__<tool>`.
 
 ## Настройка
 

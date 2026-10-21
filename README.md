@@ -12,10 +12,10 @@ An MCP server and Claude Code plugin that splits coding work between models:
 Claude calls `upsert_symbol` instead of `Edit`/`Write`; each successful call is one commit with
 `Foreman-Written-By`, `Foreman-Reviewed-By` and `Foreman-Attempts` trailers.
 
-> **Status: early development (stage 4).** For Go, the full pipeline works: generation fitted to
-> the slot, gate and fix loop, review by a cloud validator (OpenRouter, Anthropic or any
-> OpenAI-compatible API), fallback to the validator, `mode=direct`, commit with trailers. Style
-> guide tools, the code graph and the plugin are next. See [docs/providers.md](docs/providers.md). See the
+> **Status: early development (stage 5).** Go is supported end to end: generation fitted to the
+> slot, gate and fix loop, review and fallback by a cloud validator, commits with trailers, the
+> project style guide, code graph integration and the Claude Code plugin. Python and TypeScript
+> adapters are next. See the
 > [design plan](docs/design/plan-v4.ru.md) (Russian) for the roadmap.
 
 ## Supported
@@ -30,31 +30,33 @@ Claude calls `upsert_symbol` instead of `Edit`/`Write`; each successful call is 
 
 ## Install
 
-```bash
-go install github.com/MarshMeg/foreman-code-ops/cmd/foreman-code-ops@latest
-```
+1. Install the server (a C compiler is needed for the tree-sitter grammars):
 
-Register it in your project's `.mcp.json`:
+   ```bash
+   go install github.com/MarshMeg/foreman-code-ops/cmd/foreman-code-ops@latest
+   ```
 
-```json
-{
-  "mcpServers": {
-    "foreman": {
-      "command": "foreman-code-ops",
-      "args": ["--project", "${CLAUDE_PROJECT_DIR}"]
-    }
-  }
-}
-```
+2. Install the Claude Code plugin (MCP server registration and the usage skill):
 
-Optionally describe the services of a monorepo:
+   ```
+   /plugin install foreman-code-ops --marketplace MarshMeg/foreman-code-ops
+   ```
 
-```bash
-foreman-code-ops init --project .
-```
+3. Prepare the project:
 
-writes a draft `.foreman/workspace.yaml` from `go.mod`, `package.json`, `tsconfig.json` and
-`pyproject.toml` markers.
+   ```bash
+   foreman-code-ops init --project .
+   ```
+
+   This writes a draft `.foreman/workspace.yaml` (services found by `go.mod`, `package.json`,
+   `tsconfig.json`, `pyproject.toml`), adds `permissions.deny` rules such as `Edit(**/*.go)` to
+   `.claude/settings.json` so source edits go through foreman, and adds `.foreman/cache/` to
+   `.gitignore`. Without the plugin, pass `--mcp` to register the server in `.mcp.json`.
+
+4. Optionally install a code graph ([docs/graph.md](docs/graph.md)), e.g. codebase-memory-mcp.
+
+With the plugin, the tools are named `mcp__plugin_foreman-code-ops_foreman__<tool>`; with a
+project `.mcp.json` entry, `mcp__foreman__<tool>`.
 
 ## Configure
 
@@ -68,6 +70,8 @@ foreman-code-ops config --project .
 ```
 
 prints the effective configuration.
+
+Docs: [providers](docs/providers.md), [code graph](docs/graph.md), [adapters](docs/adapters.md).
 
 A local generator with three 64k slots:
 
@@ -85,7 +89,7 @@ llama-server -m model.gguf -c 196608 -np 3 --port 8080
 | `create_file` / `delete_file` | explicit file operations |
 | `check` | run the gate without changes |
 | `run_tests` | run tests on request |
-| `style_get` / `style_set` | read / update `.foreman/style.md` |
+| `style_get` / `style_set` | read / update `.foreman/style.md` (whole file or one section) |
 | `status` | providers, slots, queue, graph, warnings |
 
 ## License

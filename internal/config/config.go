@@ -105,7 +105,20 @@ type Git struct {
 
 // Graph configures the external code graph provider.
 type Graph struct {
+	// Provider is codebase-memory, graphify, command or noop.
 	Provider string `yaml:"provider" json:"provider"`
+	// Command is the provider's executable (default: codebase-memory-mcp / graphify).
+	Command string `yaml:"command" json:"command,omitempty"`
+	// Project is the codebase-memory project name; empty looks it up by the project path.
+	Project string `yaml:"project" json:"project,omitempty"`
+	// AutoIndex is true when the graph keeps itself fresh (codebase-memory watcher or
+	// auto_index, graphify git hook), so foreman does not reindex after commits.
+	AutoIndex bool `yaml:"auto_index" json:"auto_index"`
+	// Reindex and References are argv templates for provider "command". Placeholders:
+	// {root} {files} {file} {symbol} {name} {project}. References prints JSON or
+	// "path:line: text" lines.
+	Reindex    []string `yaml:"reindex" json:"reindex,omitempty"`
+	References []string `yaml:"references" json:"references,omitempty"`
 }
 
 // Log configures diagnostic logging (always to stderr; stdout carries MCP).
@@ -152,7 +165,7 @@ var (
 	validatorProviders = []string{"openai", "openrouter", "anthropic", "agent-sdk", "none"}
 	structuredModes    = []string{"json_schema", "grammar", "none"}
 	dirtyModes         = []string{"refuse", "include"}
-	graphProviders     = []string{"codebase-memory", "graphify", "noop"}
+	graphProviders     = []string{"codebase-memory", "graphify", "command", "noop"}
 	logLevels          = []string{"debug", "info", "warn", "error"}
 )
 
@@ -193,6 +206,9 @@ func (c Config) Validate() error {
 
 	oneOf("git.dirty", c.Git.Dirty, dirtyModes)
 	oneOf("graph.provider", c.Graph.Provider, graphProviders)
+	if c.Graph.Provider == "command" {
+		check(len(c.Graph.References) > 0, "graph.references is required for graph.provider command")
+	}
 	oneOf("log.level", c.Log.Level, logLevels)
 	return errors.Join(errs...)
 }

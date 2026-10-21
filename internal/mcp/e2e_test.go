@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/MarshMeg/foreman-code-ops/internal/config"
+	"github.com/MarshMeg/foreman-code-ops/internal/journal"
 	"github.com/MarshMeg/foreman-code-ops/internal/lang/builtin"
 	"github.com/MarshMeg/foreman-code-ops/internal/ops"
 	"github.com/MarshMeg/foreman-code-ops/internal/project"
@@ -14,6 +15,11 @@ import (
 )
 
 func connectProject(t *testing.T, dir string, mutate ...func(*config.Config)) *sdk.ClientSession {
+	t.Helper()
+	return connectProjectWith(t, dir, nil, mutate...)
+}
+
+func connectProjectWith(t *testing.T, dir string, j *journal.Journal, mutate ...func(*config.Config)) *sdk.ClientSession {
 	t.Helper()
 	proj, err := project.Open(dir)
 	if err != nil {
@@ -31,7 +37,7 @@ func connectProject(t *testing.T, dir string, mutate ...func(*config.Config)) *s
 	if err != nil {
 		t.Fatal(err)
 	}
-	return connect(t, Deps{ProjectDir: proj.Root, Config: cfg, Ops: o})
+	return connect(t, Deps{ProjectDir: proj.Root, Config: cfg, Ops: o, Journal: j})
 }
 
 func TestE2ESymbolAndFileTools(t *testing.T) {

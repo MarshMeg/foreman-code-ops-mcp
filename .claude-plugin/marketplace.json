@@ -1,0 +1,14 @@
+{
+  "name": "foreman-code-ops",
+  "owner": {
+    "name": "MarshMeg"
+  },
+  "description": "foreman-code-ops: a local or cheap model writes code, the gate and a validator check it, every change is committed.",
+  "plugins": [
+    {
+      "name": "foreman-code-ops",
+      "source": "./plugin",
+      "description": "MCP server that delegates writing code to a local or cheap model and verifies, applies and commits it symbol by symbol."
+    }
+  ]
+}

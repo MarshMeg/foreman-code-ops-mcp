@@ -44,6 +44,9 @@ settings drop the section prefix.
 | `git.dirty` | `--git-dirty` | `FOREMAN_GIT_DIRTY` |
 | `git.branch` | `--git-branch` | `FOREMAN_GIT_BRANCH` |
 | `graph.provider` | `--graph-provider` | `FOREMAN_GRAPH_PROVIDER` |
+| `graph.command` | `--graph-command` | `FOREMAN_GRAPH_COMMAND` |
+| `graph.project` | `--graph-project` | `FOREMAN_GRAPH_PROJECT` |
+| `graph.auto_index` | `--graph-auto-index` | `FOREMAN_GRAPH_AUTO_INDEX` |
 | `log.level` | `--log-level` | `FOREMAN_LOG_LEVEL` |
 | `log.file` | `--log-file` | `FOREMAN_LOG_FILE` |
 

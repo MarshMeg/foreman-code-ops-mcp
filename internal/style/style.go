@@ -50,3 +50,54 @@ func Select(md, lang string) string {
 	}
 	return strings.TrimSpace(strings.Join(out, ""))
 }
+
+// SetSection replaces the "## <section>" block of md (heading matched case-insensitively)
+// with content, or appends it when the section does not exist. content may include its
+// own heading; one is added otherwise.
+func SetSection(md, section, content string) string {
+	section = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(section), "## "))
+	body := strings.TrimSpace(content)
+	lines := strings.SplitAfter(md, "\n")
+	start, end := -1, len(lines)
+	for i, line := range lines {
+		if !strings.HasPrefix(line, "## ") {
+			continue
+		}
+		heading := strings.TrimSpace(strings.TrimPrefix(line, "## "))
+		if start < 0 && strings.EqualFold(heading, section) {
+			start = i
+			section = heading // keep the existing spelling
+		} else if start >= 0 {
+			end = i
+			break
+		}
+	}
+	if !strings.HasPrefix(body, "## ") {
+		body = "## " + section + "\n\n" + body
+	}
+	if start < 0 {
+		md = strings.TrimRight(md, "\n")
+		if md == "" {
+			return body + "\n"
+		}
+		return md + "\n\n" + body + "\n"
+	}
+	before := strings.Join(lines[:start], "")
+	after := strings.Join(lines[end:], "")
+	out := before + body + "\n"
+	if after != "" {
+		out += "\n" + after
+	}
+	return out
+}
+
+// Sections lists the "## " headings of md.
+func Sections(md string) []string {
+	var out []string
+	for _, line := range strings.Split(md, "\n") {
+		if strings.HasPrefix(line, "## ") {
+			out = append(out, strings.TrimSpace(strings.TrimPrefix(line, "## ")))
+		}
+	}
+	return out
+}

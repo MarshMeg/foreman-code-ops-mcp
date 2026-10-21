@@ -164,7 +164,10 @@ var settings = []setting{
 	{"limits.test_timeout", "test run timeout", func(c *Config) any { return &c.Limits.TestTimeout }},
 	{"git.dirty", "uncommitted changes in touched files: refuse|include", func(c *Config) any { return &c.Git.Dirty }},
 	{"git.branch", "commit to this branch instead of the current one", func(c *Config) any { return &c.Git.Branch }},
-	{"graph.provider", "code graph: codebase-memory|graphify|noop", func(c *Config) any { return &c.Graph.Provider }},
+	{"graph.provider", "code graph: codebase-memory|graphify|command|noop", func(c *Config) any { return &c.Graph.Provider }},
+	{"graph.command", "code graph executable", func(c *Config) any { return &c.Graph.Command }},
+	{"graph.project", "codebase-memory project name", func(c *Config) any { return &c.Graph.Project }},
+	{"graph.auto_index", "the graph reindexes itself; skip reindex after commits", func(c *Config) any { return &c.Graph.AutoIndex }},
 	{"log.level", "log level: debug|info|warn|error", func(c *Config) any { return &c.Log.Level }},
 	{"log.file", "also write logs to this file", func(c *Config) any { return &c.Log.File }},
 }

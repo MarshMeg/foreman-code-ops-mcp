@@ -12,11 +12,13 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/MarshMeg/foreman-code-ops/internal/config"
 	"github.com/MarshMeg/foreman-code-ops/internal/edit"
 	"github.com/MarshMeg/foreman-code-ops/internal/gate"
 	"github.com/MarshMeg/foreman-code-ops/internal/gitops"
+	"github.com/MarshMeg/foreman-code-ops/internal/graph"
 	"github.com/MarshMeg/foreman-code-ops/internal/lang"
 	"github.com/MarshMeg/foreman-code-ops/internal/project"
 	"github.com/MarshMeg/foreman-code-ops/internal/workspace"
@@ -46,13 +48,14 @@ type Result struct {
 
 // Ops serializes changes to one project.
 type Ops struct {
-	proj *project.Project
-	reg  *lang.Registry
-	gate *gate.Gate
-	gen  *generator
-	val  *validator
-	cfg  config.Config
-	log  *slog.Logger
+	proj  *project.Project
+	reg   *lang.Registry
+	gate  *gate.Gate
+	gen   *generator
+	val   *validator
+	graph graph.Provider
+	cfg   config.Config
+	log   *slog.Logger
 
 	// mu serializes read-modify-commit sequences so commits never interleave.
 	mu sync.Mutex
@@ -70,7 +73,8 @@ func New(proj *project.Project, reg *lang.Registry, cfg config.Config, log *slog
 	if err != nil {
 		return nil, err
 	}
-	return &Ops{proj: proj, reg: reg, gate: g, gen: newGenerator(cfg), val: newValidator(cfg), cfg: cfg, log: log}, nil
+	return &Ops{proj: proj, reg: reg, gate: g, gen: newGenerator(cfg), val: newValidator(cfg),
+		graph: graph.New(cfg.Graph, proj.Root, log), cfg: cfg, log: log}, nil
 }
 
 // Project returns the project.
@@ -158,12 +162,12 @@ func (o *Ops) DeleteSymbol(ctx context.Context, file, name string, force bool) (
 	}
 
 	if !force {
-		refs, truncated, err := o.references(ctx, rel, sym)
+		refs, truncated, source, err := o.references(ctx, rel, sym)
 		if err != nil {
 			return Result{}, err
 		}
 		if len(refs) > 0 {
-			w := []string{"references found by whole-word name search; some may be unrelated"}
+			w := []string{source}
 			count := fmt.Sprint(len(refs))
 			if truncated {
 				w = append(w, fmt.Sprintf("only the first %d references are listed", maxReferences))
@@ -190,7 +194,27 @@ func (o *Ops) DeleteSymbol(ctx context.Context, file, name string, force bool) (
 }
 
 // references finds uses of the symbol's last name segment outside its own definition.
-func (o *Ops) references(ctx context.Context, rel string, sym lang.Symbol) ([]string, bool, error) {
+// references asks the code graph for inbound references and falls back to a whole-word name
+// search when the graph is not available. source describes where the references came from.
+func (o *Ops) references(ctx context.Context, rel string, sym lang.Symbol) (refs []string, truncated bool, source string, err error) {
+	gctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	grefs, gerr := o.graph.References(gctx, rel, sym.Name)
+	cancel()
+	if gerr == nil {
+		for _, r := range grefs {
+			if len(refs) == maxReferences {
+				return refs, true, "references from the " + o.graph.Name() + " code graph", nil
+			}
+			refs = append(refs, r.String())
+		}
+		return refs, false, "references from the " + o.graph.Name() + " code graph", nil
+	}
+	source = "references found by whole-word name search (" + gerr.Error() + "); some may be unrelated"
+	refs, truncated, err = o.grepReferences(ctx, rel, sym)
+	return refs, truncated, source, err
+}
+
+func (o *Ops) grepReferences(ctx context.Context, rel string, sym lang.Symbol) ([]string, bool, error) {
 	repo, err := o.gitRepo(ctx)
 	if err != nil {
 		return nil, false, err
@@ -355,6 +379,9 @@ func (o *Ops) commit(ctx context.Context, cs *workspace.Changeset, msg gitops.Me
 		return Result{Status: StatusFailed, Message: "change applied but commit failed: " + err.Error(), Diff: diff, Warnings: warnings}, nil
 	}
 	o.log.Info("committed", "commit", hash, "files", files, "subject", msg.Subject)
+	if err := o.graph.Reindex(ctx, files); err != nil {
+		o.log.Warn("graph reindex", "err", err)
+	}
 	return Result{Status: StatusApplied, Diff: diff, Commit: hash, Warnings: warnings}, nil
 }
 
@@ -369,4 +396,12 @@ func (o *Ops) GeneratorStatus(ctx context.Context) (slots, slotCtx, running, wai
 		warnings = append(warnings, o.val.err.Error())
 	}
 	return slots, o.gen.effectiveSlotCtx(), running, waiting, warnings
+}
+
+// GraphStatus reports the code graph provider and whether it can be used.
+func (o *Ops) GraphStatus(ctx context.Context) (name string, available bool, reason string) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	ok, why := o.graph.Available(ctx)
+	return o.graph.Name(), ok, why
 }

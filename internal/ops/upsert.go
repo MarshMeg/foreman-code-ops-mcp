@@ -296,6 +296,7 @@ func failureMessage(out pipeline.Outcome, hasValidator bool) string {
 		return fmt.Sprintf("the generated code did not pass the gate after %d fix round(s) and no validator is configured for a fallback; "+
 			"refine the spec, interface or context, or write it yourself", out.BuildFixes)
 	default:
-		return "the code was not accepted; see diagnostics"
+		return fmt.Sprintf("the generator did not produce passing code (%d fix round(s), %d review round(s)) and the validator fallback "+
+			"gave no usable answer; see diagnostics", out.BuildFixes, out.Reviews)
 	}
 }

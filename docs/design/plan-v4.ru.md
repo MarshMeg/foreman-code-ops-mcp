@@ -587,11 +587,14 @@ Generic-адаптер реализует этот интерфейс по YAML.
 - [x] Фолбэк сначала пробует `rewrite` из последнего ревью; недоступный ревьюер не роняет прошедший гейт результат (коммит без `Reviewed-By` + предупреждение)
 
 ### Этап 5 — стиль, граф, плагин (2–3 дня)
-- [ ] `style_get` / `style_set`, подмешивание секций по языку
-- [ ] `GraphProvider`: codebase-memory, graphify, noop (команды в конфиге)
-- [ ] `delete_symbol` через `References`
-- [ ] Плагин: `plugin.json`, `.mcp.json`, skill, `foreman-code-ops init` с permissions
-- [ ] E2E: эндпоинт «список книг» в Go-проекте с тремя слоями
+- [x] `style_get` / `style_set`, подмешивание секций по языку
+- [x] `GraphProvider`: codebase-memory (CLI `cli <tool>`, JSON на stdin), graphify (`graph.json`), `command` (шаблоны argv в конфиге), noop
+- [x] `delete_symbol` через `References`, с откатом на поиск по имени и предупреждением
+- [x] Плагин: `plugin.json`, `.mcp.json`, skill, `marketplace.json`; `foreman-code-ops init` с permissions (`Edit(**/*.go)` покрывает Write/MultiEdit), `.gitignore`, `--mcp`
+- [x] E2E: эндпоинт поиска книг в Go-проекте с тремя слоями (через MCP, генератор + валидатор)
+- [ ] Хук `PostToolUse` для уведомлений — не сделан: переиндексацию делает сервер, полезной нагрузки у хука пока нет
+
+> Имена инструментов плагина: `mcp__plugin_foreman-code-ops_foreman__<tool>` (а не `mcp__foreman__…`, как в §0). Плагин не может сам добавить `permissions.deny` — это делает только `init`.
 
 ### Этап 6 — Python, TS/JS, TSX (5–7 дней)
 - [ ] Адаптер Python (ruff, pyright, pytest)

@@ -121,8 +121,9 @@ type RunTestsInput struct {
 
 // StyleOutput is the result of style_get.
 type StyleOutput struct {
-	Exists  bool   `json:"exists"`
-	Content string `json:"content"`
+	Exists   bool     `json:"exists"`
+	Content  string   `json:"content"`
+	Sections []string `json:"sections"`
 }
 
 // StyleSetInput is the input of style_set.
@@ -160,6 +161,7 @@ type ValidatorStatus struct {
 type GraphStatus struct {
 	Provider  string `json:"provider"`
 	Available bool   `json:"available"`
+	Reason    string `json:"reason,omitempty" jsonschema:"why the graph is unavailable"`
 }
 
 type QueueStatus struct {
