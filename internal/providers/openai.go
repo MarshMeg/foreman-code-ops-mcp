@@ -34,6 +34,8 @@ type OpenAI struct {
 	temperature float64
 	headers     map[string]string
 	http        *http.Client
+	fallback    string
+	reportCost  bool
 	// mode is the structured output mode; it may degrade from json_schema to grammar at runtime.
 	mode atomic.Value
 }
@@ -48,6 +50,11 @@ type OpenAIOptions struct {
 	Structured  string
 	Headers     map[string]string
 	Timeout     time.Duration
+	// FallbackMode replaces json_schema after the server rejects response_format with HTTP 400
+	// (default: grammar, for llama-server).
+	FallbackMode string
+	// ReportCost asks OpenRouter to include the request cost in usage.
+	ReportCost bool
 }
 
 // NewOpenAI creates a client.
@@ -60,6 +67,11 @@ func NewOpenAI(o OpenAIOptions) *OpenAI {
 		temperature: o.Temperature,
 		headers:     o.Headers,
 		http:        &http.Client{Timeout: o.Timeout},
+		fallback:    o.FallbackMode,
+		reportCost:  o.ReportCost,
+	}
+	if c.fallback == "" {
+		c.fallback = StructuredGrammar
 	}
 	if c.name == "" {
 		c.name = "openai"
@@ -85,6 +97,7 @@ type chatRequest struct {
 	MaxTokens      int             `json:"max_tokens,omitempty"`
 	ResponseFormat any             `json:"response_format,omitempty"`
 	JSONSchema     json.RawMessage `json:"json_schema,omitempty"` // llama.cpp extension
+	Usage          map[string]any  `json:"usage,omitempty"`       // OpenRouter: {"include": true}
 }
 
 type chatResponse struct {
@@ -94,7 +107,14 @@ type chatResponse struct {
 		} `json:"message"`
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
-	Usage Usage `json:"usage"`
+	Usage struct {
+		PromptTokens        int     `json:"prompt_tokens"`
+		CompletionTokens    int     `json:"completion_tokens"`
+		Cost                float64 `json:"cost"`
+		PromptTokensDetails struct {
+			CachedTokens int `json:"cached_tokens"`
+		} `json:"prompt_tokens_details"`
+	} `json:"usage"`
 	Error *struct {
 		Message string `json:"message"`
 	} `json:"error"`
@@ -116,8 +136,8 @@ func (c *OpenAI) Complete(ctx context.Context, req Request) (Response, error) {
 	var he *HTTPError
 	if err != nil && req.Schema != nil && c.Mode() == StructuredJSONSchema && errors.As(err, &he) && he.Status == http.StatusBadRequest {
 		// The server does not accept response_format with a schema; fall back for good.
-		c.mode.Store(StructuredGrammar)
-		return c.complete(ctx, req, StructuredGrammar)
+		c.mode.Store(c.fallback)
+		return c.complete(ctx, req, c.fallback)
 	}
 	return resp, err
 }
@@ -129,6 +149,9 @@ func (c *OpenAI) complete(ctx context.Context, req Request, mode string) (Respon
 	}
 	msgs = append(msgs, req.Messages...)
 	body := chatRequest{Model: c.model, Messages: msgs, Temperature: c.temperature, MaxTokens: req.MaxTokens}
+	if c.reportCost {
+		body.Usage = map[string]any{"include": true}
+	}
 	if req.Schema != nil {
 		schema, err := json.Marshal(req.Schema)
 		if err != nil {
@@ -166,7 +189,13 @@ func (c *OpenAI) complete(ctx context.Context, req Request, mode string) (Respon
 	if ch.FinishReason == "length" {
 		return Response{}, fmt.Errorf("%s: answer truncated at max_tokens (%d)", c.Name(), req.MaxTokens)
 	}
-	return Response{Text: ch.Message.Content, Usage: out.Usage}, nil
+	u := out.Usage
+	return Response{Text: ch.Message.Content, Usage: Usage{
+		PromptTokens:     u.PromptTokens,
+		CompletionTokens: u.CompletionTokens,
+		CachedTokens:     u.PromptTokensDetails.CachedTokens,
+		Cost:             u.Cost,
+	}}, nil
 }
 
 func (c *OpenAI) post(ctx context.Context, url string, body []byte, out any) error {

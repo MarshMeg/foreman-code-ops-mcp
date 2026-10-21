@@ -22,9 +22,9 @@ generator:
 
 validator:
   provider: openrouter          # openai | openrouter | anthropic | agent-sdk | none
-  base_url: https://openrouter.ai/api/v1
+  base_url: ""                  # default per provider (openrouter: https://openrouter.ai/api/v1)
   model: z-ai/glm-5.3-flash
-  api_key_env: OPENROUTER_API_KEY
+  api_key_env: ""               # default: OPENROUTER_API_KEY / ANTHROPIC_API_KEY
   timeout: 120s
   batch:
     enabled: false              # reserved for background bulk review

@@ -46,9 +46,11 @@ type UpsertResult struct {
 	Signature   string
 	Diff        string
 	Commit      string
-	WrittenBy   string // local | none
+	WrittenBy   string // local | validator | none
+	ReviewedBy  string
 	BuildFixes  int
 	Reviews     int
+	MinorNotes  []string
 	Diagnostics []gate.Diagnostic
 	Tests       *gate.TestResult
 	LastCode    string
@@ -62,16 +64,20 @@ func (o *Ops) Upsert(ctx context.Context, req UpsertRequest) (UpsertResult, erro
 	if !slices.Contains(Kinds, req.Kind) {
 		return UpsertResult{}, fmt.Errorf("kind %q is not one of %v", req.Kind, Kinds)
 	}
-	if req.Mode != "" && req.Mode != "local" {
-		if req.Mode == "direct" {
-			return UpsertResult{}, errors.New("mode=direct needs the validator, which arrives in the next stage; use mode=local")
-		}
+	if req.Mode != "" && req.Mode != "local" && req.Mode != "direct" {
 		return UpsertResult{}, fmt.Errorf("mode %q is not local or direct", req.Mode)
+	}
+	direct := req.Mode == "direct"
+	if direct && o.val.p == nil {
+		if o.val.err != nil {
+			return UpsertResult{}, o.val.err
+		}
+		return UpsertResult{}, errors.New("mode=direct needs a validator, but validator.provider is none")
 	}
 	if strings.TrimSpace(req.Spec) == "" {
 		return UpsertResult{}, errors.New("spec is required")
 	}
-	if o.gen.p == nil {
+	if o.gen.p == nil && !direct {
 		return UpsertResult{}, o.gen.err
 	}
 	rel, abs, err := o.proj.Resolve(req.File)
@@ -105,23 +111,26 @@ func (o *Ops) Upsert(ctx context.Context, req UpsertRequest) (UpsertResult, erro
 	o.gen.reconcile(ctx)
 
 	env := pipeline.Env{
-		Root:          o.proj.Root,
-		Adapter:       a,
-		Gate:          o.gate.WithLimits(limits),
-		Generator:     o.gen.p,
-		Acquire:       o.gen.sched.Acquire,
-		Count:         o.gen.counter(),
-		SlotCtx:       o.gen.effectiveSlotCtx(),
-		OutputReserve: o.cfg.Generator.OutputReserve,
-		Limits:        limits,
-		Style:         style.Select(guide, a.Lang()),
-		Context:       snippets,
-		Source:        src,
-		Exists:        exists,
-		Siblings:      siblings(abs),
-		Log:           o.log,
+		Root:             o.proj.Root,
+		Adapter:          a,
+		Gate:             o.gate.WithLimits(limits),
+		Generator:        o.gen.p,
+		Acquire:          o.gen.sched.Acquire,
+		Count:            o.gen.counter(),
+		SlotCtx:          o.gen.effectiveSlotCtx(),
+		OutputReserve:    o.cfg.Generator.OutputReserve,
+		Limits:           limits,
+		Validator:        o.val.p,
+		AcquireValidator: o.val.sched.Acquire,
+		ValidatorTimeout: o.cfg.Validator.Timeout.D(),
+		Style:            style.Select(guide, a.Lang()),
+		Context:          snippets,
+		Source:           src,
+		Exists:           exists,
+		Siblings:         siblings(abs),
+		Log:              o.log,
 	}
-	task := pipeline.Task{File: rel, Symbol: req.Symbol, Kind: req.Kind, Spec: req.Spec,
+	task := pipeline.Task{Direct: direct, File: rel, Symbol: req.Symbol, Kind: req.Kind, Spec: req.Spec,
 		Interface: req.Interface, Anchor: req.Anchor, Package: req.Package}
 
 	out, err := pipeline.Run(ctx, env, task)
@@ -134,15 +143,25 @@ func (o *Ops) Upsert(ctx context.Context, req UpsertRequest) (UpsertResult, erro
 	res := UpsertResult{
 		Symbol:      req.Symbol,
 		BuildFixes:  out.BuildFixes,
+		Reviews:     out.Reviews,
 		Diagnostics: out.Diagnostics,
-		WrittenBy:   "local",
+		WrittenBy:   out.WrittenBy,
+		ReviewedBy:  out.ReviewedBy,
+		MinorNotes:  out.MinorNotes,
+		Warnings:    out.Warnings,
+	}
+	if o.val.err != nil {
+		res.Warnings = append(res.Warnings, o.val.err.Error())
 	}
 	if len(out.Dropped) > 0 {
 		res.Warnings = append(res.Warnings, "context dropped to fit the generator slot: "+strings.Join(out.Dropped, ", "))
 	}
 	if !out.OK {
-		res.Status, res.WrittenBy, res.LastCode = StatusFailed, "none", out.Code
-		res.Message = fmt.Sprintf("the generated code did not pass the gate after %d fix round(s); refine the spec/interface/context or write it with mode=direct", out.BuildFixes)
+		res.Status, res.WrittenBy, res.LastCode = StatusFailed, pipeline.WrittenByNone, out.Code
+		res.Message = failureMessage(out, o.val.p != nil)
+		for _, is := range out.ReviewIssues {
+			res.Diagnostics = append(res.Diagnostics, gate.Diagnostic{File: rel, Severity: gate.SeverityError, Source: "review", Message: is})
+		}
 		return res, nil
 	}
 
@@ -162,7 +181,7 @@ func (o *Ops) Upsert(ctx context.Context, req UpsertRequest) (UpsertResult, erro
 		return UpsertResult{}, err
 	}
 	if applied != nil && gate.HasErrors(applied.Diagnostics) {
-		res.Status, res.WrittenBy, res.LastCode, res.Diagnostics = StatusFailed, "none", out.Code, applied.Diagnostics
+		res.Status, res.WrittenBy, res.LastCode, res.Diagnostics = StatusFailed, pipeline.WrittenByNone, out.Code, applied.Diagnostics
 		res.Message = "the file changed while the code was generated, and the code no longer passes the gate on the new version"
 		return res, nil
 	}
@@ -176,12 +195,9 @@ func (o *Ops) Upsert(ctx context.Context, req UpsertRequest) (UpsertResult, erro
 		subject = fmt.Sprintf("upsert %s %s", rel, req.Symbol)
 	}
 	msg := gitops.Message{
-		Subject: subject,
-		Body:    "spec: " + strings.TrimSpace(req.Spec),
-		Trailers: []gitops.Trailer{
-			{Key: gitops.TrailerWrittenBy, Value: fmt.Sprintf("local (%s)", o.gen.p.Model())},
-			{Key: gitops.TrailerAttempts, Value: fmt.Sprintf("build=%d review=0", out.BuildFixes)},
-		},
+		Subject:  subject,
+		Body:     "spec: " + strings.TrimSpace(req.Spec),
+		Trailers: trailers(out, o.gen.p, o.val.p),
 	}
 	cr, err := o.commit(ctx, changes, msg)
 	if err != nil {
@@ -251,4 +267,35 @@ func (o *Ops) resolveContext(refs []Ref) ([]pipeline.Snippet, error) {
 		out = append(out, pipeline.Snippet{Ref: info.File + ":" + info.Symbol.Name, Source: info.Source})
 	}
 	return out, errors.Join(errs...)
+}
+
+func trailers(out pipeline.Outcome, gen, val providers.Provider) []gitops.Trailer {
+	var t []gitops.Trailer
+	switch out.WrittenBy {
+	case pipeline.WrittenByValidator:
+		t = append(t, gitops.Trailer{Key: gitops.TrailerWrittenBy, Value: fmt.Sprintf("validator (%s)", val.Name())})
+	default:
+		t = append(t, gitops.Trailer{Key: gitops.TrailerWrittenBy, Value: fmt.Sprintf("local (%s)", gen.Model())})
+	}
+	if out.ReviewedBy != "" {
+		t = append(t, gitops.Trailer{Key: gitops.TrailerReviewedBy, Value: out.ReviewedBy})
+	}
+	attempts := fmt.Sprintf("build=%d review=%d", out.BuildFixes, out.Reviews)
+	if out.FallbackAttempts > 0 {
+		attempts += fmt.Sprintf(" fallback=%d", out.FallbackAttempts)
+	}
+	return append(t, gitops.Trailer{Key: gitops.TrailerAttempts, Value: attempts})
+}
+
+func failureMessage(out pipeline.Outcome, hasValidator bool) string {
+	switch {
+	case out.FallbackAttempts > 0:
+		return fmt.Sprintf("neither the generator (%d fix round(s), %d review round(s)) nor the validator (%d attempt(s)) produced code that passes; "+
+			"refine the spec, interface or context, or write it yourself", out.BuildFixes, out.Reviews, out.FallbackAttempts)
+	case !hasValidator:
+		return fmt.Sprintf("the generated code did not pass the gate after %d fix round(s) and no validator is configured for a fallback; "+
+			"refine the spec, interface or context, or write it yourself", out.BuildFixes)
+	default:
+		return "the code was not accepted; see diagnostics"
+	}
 }

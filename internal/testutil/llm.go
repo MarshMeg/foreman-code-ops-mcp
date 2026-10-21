@@ -28,6 +28,8 @@ type FakeLLM struct {
 	Slots, SlotCtx int
 	// Respond, if set, answers instead of the queue (prompt is all message contents joined).
 	Respond func(prompt string) Answer
+	// Fail makes every chat request return HTTP 500 (an unreachable or broken provider).
+	Fail bool
 }
 
 // NewFakeLLM starts a server answering with the given answers in order.
@@ -56,6 +58,11 @@ func NewFakeLLM(t *testing.T, answers ...Answer) *FakeLLM {
 			hook(n)
 		}
 		f.mu.Lock()
+		if f.Fail {
+			f.mu.Unlock()
+			http.Error(w, "upstream error", http.StatusInternalServerError)
+			return
+		}
 		if respond := f.Respond; respond != nil {
 			f.mu.Unlock()
 			writeAnswer(w, mustJSON(respond(strings.Join(parts, "\n---\n"))))
@@ -116,3 +123,19 @@ func writeAnswer(w http.ResponseWriter, content string) {
 		"usage":   map[string]any{"prompt_tokens": 100, "completion_tokens": 20},
 	})
 }
+
+// Verdict builds a validator review answer.
+func Verdict(ok bool, severity string, problems []string, rewrite *Answer) string {
+	issues := make([]map[string]any, 0, len(problems))
+	for _, p := range problems {
+		issues = append(issues, map[string]any{"line": 1, "problem": p, "fix": nil})
+	}
+	var rw any
+	if rewrite != nil {
+		rw = rewrite
+	}
+	return mustJSON(map[string]any{"ok": ok, "severity": severity, "issues": issues, "rewrite": rw})
+}
+
+// Code builds a writer answer as raw text.
+func Code(a Answer) string { return mustJSON(a) }

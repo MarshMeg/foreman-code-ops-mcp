@@ -11,10 +11,14 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
+	"time"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/MarshMeg/foreman-code-ops/internal/bench"
 	"github.com/MarshMeg/foreman-code-ops/internal/config"
 	"github.com/MarshMeg/foreman-code-ops/internal/journal"
 	"github.com/MarshMeg/foreman-code-ops/internal/lang/builtin"
@@ -22,6 +26,7 @@ import (
 	"github.com/MarshMeg/foreman-code-ops/internal/mcp"
 	"github.com/MarshMeg/foreman-code-ops/internal/ops"
 	"github.com/MarshMeg/foreman-code-ops/internal/project"
+	"github.com/MarshMeg/foreman-code-ops/internal/providers"
 )
 
 // version is set at build time via -ldflags "-X main.version=...".
@@ -51,8 +56,10 @@ func run(args []string, stderr io.Writer) error {
 		return printConfig(args, stderr)
 	case "init":
 		return initProject(args, stderr)
+	case "bench-review":
+		return benchReview(args, stderr)
 	default:
-		return fmt.Errorf("unknown command %q (commands: serve, init, config, version)", cmd)
+		return fmt.Errorf("unknown command %q (commands: serve, init, config, bench-review, version)", cmd)
 	}
 }
 
@@ -172,5 +179,48 @@ func initProject(args []string, stderr io.Writer) error {
 	}
 	fmt.Fprintf(stderr, "wrote %s with %d service(s); review it and commit it\n", path, len(svcs))
 	os.Stdout.Write(data)
+	return nil
+}
+
+// benchReview measures validator latency, cache hits and cost on a fixed review (plan §7a).
+func benchReview(args []string, stderr io.Writer) error {
+	fs := flag.NewFlagSet("bench-review", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	provider := fs.String("provider", "openrouter", "openrouter | openai | anthropic")
+	baseURL := fs.String("base-url", "", "API base URL (default per provider)")
+	models := fs.String("models", "z-ai/glm-5.3-flash,z-ai/glm-5.3-flashx", "comma-separated models")
+	parallel := fs.String("parallel", "1,4,8", "comma-separated parallelism levels")
+	n := fs.Int("n", 16, "requests per model and level")
+	keyEnv := fs.String("api-key-env", "", "env var with the API key (default per provider)")
+	timeout := fs.Duration("timeout", 120*time.Second, "per-request timeout")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	var levels []int
+	for _, s := range strings.Split(*parallel, ",") {
+		v, err := strconv.Atoi(strings.TrimSpace(s))
+		if err != nil || v < 1 {
+			return fmt.Errorf("invalid parallelism %q", s)
+		}
+		levels = append(levels, v)
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	var results []bench.Result
+	for _, m := range strings.Split(*models, ",") {
+		p, err := providers.New(providers.Spec{Provider: *provider, BaseURL: *baseURL, Model: strings.TrimSpace(m),
+			APIKeyEnv: *keyEnv, Structured: providers.StructuredJSONSchema, Timeout: *timeout})
+		if err != nil {
+			return err
+		}
+		if p == nil {
+			return errors.New("provider none cannot be benchmarked")
+		}
+		for _, lvl := range levels {
+			fmt.Fprintf(stderr, "%s, parallel %d: %d requests...\n", p.Name(), lvl, *n)
+			results = append(results, bench.Run(ctx, p, *n, lvl))
+		}
+	}
+	bench.WriteMarkdown(os.Stdout, results)
 	return nil
 }

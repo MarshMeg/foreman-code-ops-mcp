@@ -52,8 +52,10 @@ func NewServer(d Deps) *sdk.Server {
 	add(h, s, &sdk.Tool{
 		Name: "upsert_symbol",
 		Description: "Create or replace a function, method, type, class, interface or component. " +
-			"The generator writes the code; imports are fixed, the file is formatted, linted and built; the validator (if enabled) reviews it; " +
-			"on success the change is committed and the new signature returned. On failure, diagnostics and the last candidate are returned.",
+			"The generator writes the code; imports are fixed, the file is formatted, linted and built; the validator (if enabled) reviews it, " +
+			"and writes it itself when the generator fails. mode=direct lets the validator write it right away (complex logic, algorithms). " +
+			"On success the change is committed and the new signature returned; check written_by and reviewed_by, and read the diff when it was not reviewed. " +
+			"On failure, diagnostics and the last candidate are returned.",
 	}, h.upsertSymbol)
 
 	add(h, s, &sdk.Tool{
@@ -206,10 +208,6 @@ func (h *handlers) status(ctx context.Context, _ *sdk.CallToolRequest, _ struct{
 	}
 	if !out.Validator.Enabled {
 		out.Warnings = append(out.Warnings, "validator disabled: the build/lint gate is the only check")
-	} else if c.Validator.APIKeyEnv != "" {
-		if _, ok := os.LookupEnv(c.Validator.APIKeyEnv); !ok {
-			out.Warnings = append(out.Warnings, fmt.Sprintf("validator API key env %s is not set", c.Validator.APIKeyEnv))
-		}
 	}
 	return nil, out, nil
 }
@@ -291,12 +289,15 @@ func (h *handlers) upsertSymbol(ctx context.Context, _ *sdk.CallToolRequest, in 
 	}
 	out := UpsertSymbolOutput{
 		Status: r.Status, Message: r.Message, Symbol: r.Symbol, Signature: r.Signature, Diff: r.Diff, Commit: r.Commit,
-		WrittenBy: r.WrittenBy, Attempts: Attempts{BuildFixes: r.BuildFixes, Reviews: r.Reviews},
-		MinorNotes: []string{}, Diagnostics: r.Diagnostics, LastCode: r.LastCode, Warnings: r.Warnings,
+		WrittenBy: r.WrittenBy, ReviewedBy: r.ReviewedBy, Attempts: Attempts{BuildFixes: r.BuildFixes, Reviews: r.Reviews},
+		MinorNotes: r.MinorNotes, Diagnostics: r.Diagnostics, LastCode: r.LastCode, Warnings: r.Warnings,
 		file: req.File,
 	}
 	if out.Diagnostics == nil {
 		out.Diagnostics = []Diagnostic{}
+	}
+	if out.MinorNotes == nil {
+		out.MinorNotes = []string{}
 	}
 	if r.Tests != nil {
 		out.Tests = *r.Tests

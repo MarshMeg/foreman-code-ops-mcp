@@ -90,7 +90,9 @@ func TestE2EUpsertSymbol(t *testing.T) {
 	dir := tu.RepoFromFixture(t, "../../testdata/go-layered")
 	llm := tu.NewFakeLLM(t, tu.Answer{Code: "// Count returns the number of books.\nfunc (s *BookService) Count(ctx context.Context) (int, error) {\n\treturn 0, nil\n}"})
 	llm.Slots = 2
-	cs := connectProject(t, dir, func(c *config.Config) { c.Generator.BaseURL, c.Generator.Model = llm.URL, "m" })
+	cs := connectProject(t, dir, func(c *config.Config) {
+		c.Generator.BaseURL, c.Generator.Model, c.Validator.Provider = llm.URL, "m", "none"
+	})
 
 	out := decode[UpsertSymbolOutput](t, call(t, cs, "upsert_symbol", map[string]any{
 		"file": "internal/service/book.go", "symbol": "BookService.Count", "kind": "method",

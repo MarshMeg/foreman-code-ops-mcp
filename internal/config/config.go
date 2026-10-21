@@ -128,11 +128,9 @@ func Default() Config {
 			Structured:    "json_schema",
 		},
 		Validator: Validator{
-			Provider:  "openrouter",
-			BaseURL:   "https://openrouter.ai/api/v1",
-			Model:     "z-ai/glm-5.3-flash",
-			APIKeyEnv: "OPENROUTER_API_KEY",
-			Timeout:   Duration(120 * time.Second),
+			Provider: "openrouter",
+			Model:    "z-ai/glm-5.3-flash",
+			Timeout:  Duration(120 * time.Second),
 		},
 		Limits: Limits{
 			MaxBuildFixes:       3,

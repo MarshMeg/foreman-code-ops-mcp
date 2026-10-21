@@ -3,7 +3,6 @@ package ops
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -30,23 +29,17 @@ type generator struct {
 
 func newGenerator(cfg config.Config) *generator {
 	g := &generator{cfg: cfg.Generator, sched: scheduler.New(cfg.Generator.Slots), slotCtx: cfg.Generator.SlotCtx}
-	switch cfg.Generator.Provider {
-	case "openai":
-		key := ""
-		if cfg.Generator.APIKeyEnv != "" {
-			key = os.Getenv(cfg.Generator.APIKeyEnv)
-		}
-		g.p = providers.NewOpenAI(providers.OpenAIOptions{
-			Name:        "openai",
-			BaseURL:     cfg.Generator.BaseURL,
-			Model:       cfg.Generator.Model,
-			APIKey:      key,
-			Temperature: cfg.Generator.Temperature,
-			Structured:  cfg.Generator.Structured,
-			Timeout:     cfg.Limits.GenerateTimeout.D(),
-		})
-	default:
-		g.err = fmt.Errorf("generator provider %q is not implemented yet (available: openai)", cfg.Generator.Provider)
+	g.p, g.err = providers.New(providers.Spec{
+		Provider:    cfg.Generator.Provider,
+		BaseURL:     cfg.Generator.BaseURL,
+		Model:       cfg.Generator.Model,
+		APIKeyEnv:   cfg.Generator.APIKeyEnv,
+		Temperature: cfg.Generator.Temperature,
+		Structured:  cfg.Generator.Structured,
+		Timeout:     cfg.Limits.GenerateTimeout.D(),
+	})
+	if g.err != nil {
+		g.err = fmt.Errorf("generator: %w", g.err)
 	}
 	return g
 }
@@ -116,4 +109,27 @@ func (g *generator) status() (warnings []string) {
 		out = append(out, g.err.Error())
 	}
 	return out
+}
+
+// validator is the reviewing and fallback-writing model.
+type validator struct {
+	p     providers.Provider // nil when disabled or unavailable
+	err   error              // why a configured validator is unavailable
+	sched *scheduler.Scheduler
+}
+
+func newValidator(cfg config.Config) *validator {
+	v := &validator{sched: scheduler.New(cfg.Limits.MaxParallelReviews)}
+	v.p, v.err = providers.New(providers.Spec{
+		Provider:   cfg.Validator.Provider,
+		BaseURL:    cfg.Validator.BaseURL,
+		Model:      cfg.Validator.Model,
+		APIKeyEnv:  cfg.Validator.APIKeyEnv,
+		Structured: providers.StructuredJSONSchema,
+		Timeout:    cfg.Validator.Timeout.D(),
+	})
+	if v.err != nil {
+		v.err = fmt.Errorf("validator unavailable, code is not reviewed: %w", v.err)
+	}
+	return v
 }

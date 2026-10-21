@@ -29,6 +29,7 @@ func upsertOps(t *testing.T, llm *tu.FakeLLM, mutate ...func(*config.Config)) (*
 	return newOps(t, dir, append([]func(*config.Config){func(c *config.Config) {
 		c.Generator.BaseURL = llm.URL
 		c.Generator.Model = "test-model"
+		c.Validator.Provider = "none"
 	}}, mutate...)...), dir
 }
 

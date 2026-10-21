@@ -50,6 +50,7 @@ type Ops struct {
 	reg  *lang.Registry
 	gate *gate.Gate
 	gen  *generator
+	val  *validator
 	cfg  config.Config
 	log  *slog.Logger
 
@@ -69,7 +70,7 @@ func New(proj *project.Project, reg *lang.Registry, cfg config.Config, log *slog
 	if err != nil {
 		return nil, err
 	}
-	return &Ops{proj: proj, reg: reg, gate: g, gen: newGenerator(cfg), cfg: cfg, log: log}, nil
+	return &Ops{proj: proj, reg: reg, gate: g, gen: newGenerator(cfg), val: newValidator(cfg), cfg: cfg, log: log}, nil
 }
 
 // Project returns the project.
@@ -363,5 +364,9 @@ func (o *Ops) GeneratorStatus(ctx context.Context) (slots, slotCtx, running, wai
 		o.gen.reconcile(ctx)
 	}
 	slots, running, waiting = o.gen.sched.Stats()
-	return slots, o.gen.effectiveSlotCtx(), running, waiting, o.gen.status()
+	warnings = o.gen.status()
+	if o.val.err != nil {
+		warnings = append(warnings, o.val.err.Error())
+	}
+	return slots, o.gen.effectiveSlotCtx(), running, waiting, warnings
 }

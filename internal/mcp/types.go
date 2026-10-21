@@ -48,8 +48,9 @@ type UpsertSymbolOutput struct {
 	Diff        string       `json:"diff,omitempty"`
 	Commit      string       `json:"commit,omitempty"`
 	WrittenBy   string       `json:"written_by" jsonschema:"local, validator or none"`
+	ReviewedBy  string       `json:"reviewed_by,omitempty" jsonschema:"validator that accepted the code; empty when not reviewed"`
 	Attempts    Attempts     `json:"attempts"`
-	MinorNotes  []string     `json:"minor_notes"`
+	MinorNotes  []string     `json:"minor_notes" jsonschema:"non-blocking review remarks"`
 	Diagnostics []Diagnostic `json:"diagnostics"`
 	Tests       TestResult   `json:"tests"`
 	LastCode    string       `json:"last_code,omitempty" jsonschema:"last candidate when status is failed"`

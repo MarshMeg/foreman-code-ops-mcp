@@ -1,21 +1,19 @@
 // Package pipeline produces a checked change for one symbol: it builds the generator
-// prompt within the slot budget, generates code, splices it into the file, runs the gate
-// and loops on build/lint errors. It does not touch the real file or git; the caller
-// commits the returned changeset.
+// prompt within the slot budget, generates code, splices it into the file, runs the gate,
+// loops on build/lint errors, has the validator review the result and, when the generator
+// cannot get it right, lets the validator write it. It does not touch the real file or
+// git; the caller commits the returned changeset.
 package pipeline
 
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"slices"
 	"strings"
 
 	"github.com/MarshMeg/foreman-code-ops/internal/budget"
-	"github.com/MarshMeg/foreman-code-ops/internal/config"
 	"github.com/MarshMeg/foreman-code-ops/internal/edit"
 	"github.com/MarshMeg/foreman-code-ops/internal/gate"
 	"github.com/MarshMeg/foreman-code-ops/internal/lang"
@@ -29,6 +27,8 @@ const maxFixDiagnostics = 20
 
 // Task is what to write.
 type Task struct {
+	// Direct skips the generator: the validator writes the symbol (mode=direct).
+	Direct    bool
 	File      string // project-relative
 	Symbol    string
 	Kind      string
@@ -42,107 +42,6 @@ type Task struct {
 type Snippet struct {
 	Ref    string // "file:Symbol"
 	Source string
-}
-
-// Env holds everything the pipeline needs. Source/Exists describe the file when the task started.
-type Env struct {
-	Root      string
-	Adapter   lang.Adapter
-	Gate      *gate.Gate
-	Generator providers.Provider
-	// Acquire reserves a generator slot for one model call.
-	Acquire       func(context.Context) (func(), error)
-	Count         budget.Counter
-	SlotCtx       int
-	OutputReserve int
-	Limits        config.Limits
-	Style         string
-	Context       []Snippet
-	Source        []byte
-	Exists        bool
-	Siblings      [][]byte
-	Log           *slog.Logger
-}
-
-// Outcome is the result of Run.
-type Outcome struct {
-	// OK is true when the change passed the gate; Changes then holds it.
-	OK          bool
-	Changes     *workspace.Changeset
-	Code        string
-	Imports     []string
-	Symbol      lang.Symbol
-	BuildFixes  int
-	Diagnostics []gate.Diagnostic
-	// Dropped lists context parts that did not fit into the slot.
-	Dropped []string
-	Usage   providers.Usage
-}
-
-// Run generates and checks the symbol, retrying on gate errors up to Limits.MaxBuildFixes.
-func Run(ctx context.Context, env Env, t Task) (Outcome, error) {
-	if env.Log == nil {
-		env.Log = slog.New(slog.DiscardHandler)
-	}
-	base, err := baseSource(env, t)
-	if err != nil {
-		return Outcome{}, err
-	}
-	current, found, err := findSymbol(env.Adapter, base, t.Symbol)
-	if err != nil {
-		return Outcome{}, err
-	}
-	if !found && t.Anchor != "" {
-		if _, err := env.Adapter.Find(base, t.Anchor); err != nil {
-			return Outcome{}, fmt.Errorf("anchor: %w", err)
-		}
-	}
-
-	system, err := render("generate.md", map[string]any{"Lang": env.Adapter.Lang(), "Fragment": env.Adapter.PromptFragment()})
-	if err != nil {
-		return Outcome{}, err
-	}
-	prompt, dropped, err := buildPrompt(ctx, env, t, base, current, found, system)
-	if err != nil {
-		return Outcome{}, err
-	}
-	out := Outcome{Dropped: dropped}
-
-	msgs := []providers.Message{{Role: "user", Content: prompt}}
-	gen, answer, err := generate(ctx, env, system, msgs, &out.Usage)
-	for {
-		if errors.Is(err, providers.ErrInvalidAnswer) {
-			out.Diagnostics = []gate.Diagnostic{{Severity: gate.SeverityError, Source: "generator", Message: err.Error()}}
-			return out, nil
-		}
-		if err != nil {
-			return out, err
-		}
-		out.Code, out.Imports = gen.Code, gen.Imports
-
-		res, err := Apply(ctx, env, t, base, gen)
-		if err != nil {
-			return out, err
-		}
-		if !gate.HasErrors(res.Diagnostics) {
-			out.OK, out.Changes, out.Symbol, out.Diagnostics = true, res.Changes, res.Symbol, res.Diagnostics
-			return out, nil
-		}
-		out.Diagnostics = res.Diagnostics
-		if out.BuildFixes >= env.Limits.MaxBuildFixes {
-			return out, nil
-		}
-		out.BuildFixes++
-		env.Log.Info("gate failed, asking generator to fix", "symbol", t.Symbol, "round", out.BuildFixes, "errors", countErrors(res.Diagnostics))
-
-		fix, err := render("fix.md", map[string]any{"File": t.File, "Diagnostics": errorLines(res.Diagnostics), "Code": res.Region})
-		if err != nil {
-			return out, err
-		}
-		// Only the latest attempt is sent back, so the prompt stays within the slot budget.
-		msgs = []providers.Message{{Role: "user", Content: prompt}, {Role: "assistant", Content: answer}, {Role: "user", Content: fix}}
-		gen, answer, err = generate(ctx, env, system, msgs, &out.Usage)
-	}
 }
 
 // Applied is a candidate change after splicing, import fixing, formatting and checks.
@@ -266,36 +165,8 @@ func extraSymbols(before, after []lang.Symbol, target string) []string {
 	return extra
 }
 
-func generate(ctx context.Context, env Env, system string, msgs []providers.Message, usage *providers.Usage) (providers.GeneratedCode, string, error) {
-	release, err := env.Acquire(ctx)
-	if err != nil {
-		return providers.GeneratedCode{}, "", err
-	}
-	defer release()
-	if d := env.Limits.GenerateTimeout.D(); d > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, d)
-		defer cancel()
-	}
-	var gen providers.GeneratedCode
-	_, u, err := providers.Structured(ctx, env.Generator, providers.Request{
-		System:     system,
-		Messages:   msgs,
-		Schema:     providers.GeneratorSchema(),
-		SchemaName: "generated_code",
-		MaxTokens:  env.OutputReserve,
-	}, &gen)
-	usage.PromptTokens += u.PromptTokens
-	usage.CompletionTokens += u.CompletionTokens
-	if err != nil {
-		return gen, "", err
-	}
-	// Fix rounds send back a canonical form of the accepted answer.
-	answer, _ := json.Marshal(gen)
-	return gen, string(answer), nil
-}
-
-func buildPrompt(ctx context.Context, env Env, t Task, base []byte, current lang.Symbol, found bool, system string) (string, []string, error) {
+// buildPrompt renders the writer prompt, dropping low-priority parts to fit limit tokens.
+func buildPrompt(ctx context.Context, env Env, t Task, base []byte, current lang.Symbol, found bool, system string, limit int, count budget.Counter) (string, []string, error) {
 	a := env.Adapter
 	var parts []budget.Part
 	if env.Style != "" {
@@ -340,7 +211,7 @@ func buildPrompt(ctx context.Context, env Env, t Task, base []byte, current lang
 		budget.Part{Key: "system", Priority: budget.Required, Text: system},
 	)
 
-	fit, err := budget.Fit(ctx, parts, env.SlotCtx-env.OutputReserve, env.Count)
+	fit, err := budget.Fit(ctx, parts, limit, count)
 	if err != nil {
 		return "", nil, err
 	}

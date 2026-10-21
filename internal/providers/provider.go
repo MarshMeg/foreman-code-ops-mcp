@@ -32,6 +32,18 @@ type Request struct {
 type Usage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
+	// CachedTokens is the part of PromptTokens served from the provider's prompt cache.
+	CachedTokens int `json:"cached_tokens"`
+	// Cost in USD when the provider reports it (OpenRouter).
+	Cost float64 `json:"cost,omitempty"`
+}
+
+// Add accumulates u into t.
+func (t *Usage) Add(u Usage) {
+	t.PromptTokens += u.PromptTokens
+	t.CompletionTokens += u.CompletionTokens
+	t.CachedTokens += u.CachedTokens
+	t.Cost += u.Cost
 }
 
 // Response is a completion.
@@ -82,8 +94,7 @@ func Structured(ctx context.Context, p Provider, req Request, out any) ([]Messag
 		if err != nil {
 			return nil, total, err
 		}
-		total.PromptTokens += resp.Usage.PromptTokens
-		total.CompletionTokens += resp.Usage.CompletionTokens
+		total.Add(resp.Usage)
 		msgs = append(msgs, Message{Role: "assistant", Content: resp.Text})
 
 		verr := decode(resp.Text, resolved, out)

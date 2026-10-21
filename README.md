@@ -12,10 +12,10 @@ An MCP server and Claude Code plugin that splits coding work between models:
 Claude calls `upsert_symbol` instead of `Edit`/`Write`; each successful call is one commit with
 `Foreman-Written-By`, `Foreman-Reviewed-By` and `Foreman-Attempts` trailers.
 
-> **Status: early development (stage 3).** For Go, `upsert_symbol` works end to end with an
-> OpenAI-compatible generator (llama-server and others): prompt fitted to the slot, generation,
-> gate, fix loop, commit. The cloud validator and fallback are next. See
-> [docs/providers.md](docs/providers.md). See the
+> **Status: early development (stage 4).** For Go, the full pipeline works: generation fitted to
+> the slot, gate and fix loop, review by a cloud validator (OpenRouter, Anthropic or any
+> OpenAI-compatible API), fallback to the validator, `mode=direct`, commit with trailers. Style
+> guide tools, the code graph and the plugin are next. See [docs/providers.md](docs/providers.md). See the
 > [design plan](docs/design/plan-v4.ru.md) (Russian) for the roadmap.
 
 ## Supported

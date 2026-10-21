@@ -49,6 +49,11 @@ settings drop the section prefix.
 
 Durations use Go syntax: `90s`, `5m`, `1h30m`.
 
+Empty `base_url` and `api_key_env` take per-provider defaults: OpenRouter uses
+`https://openrouter.ai/api/v1` and `OPENROUTER_API_KEY`; Anthropic uses the SDK default endpoint
+and `ANTHROPIC_API_KEY` (or other credentials the SDK finds, such as an `ant auth login` profile);
+`openai` for the generator defaults to `http://127.0.0.1:8080/v1`.
+
 ## Per-call limits
 
 `upsert_symbol` accepts an optional `limits` object with `max_build_fixes`, `max_reviews`,

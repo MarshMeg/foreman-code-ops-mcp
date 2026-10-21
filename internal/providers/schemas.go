@@ -29,3 +29,56 @@ func GeneratorSchema() *jsonschema.Schema {
 		AdditionalProperties: falseSchema(),
 	}
 }
+
+// Severity levels of a review verdict.
+const (
+	SeverityNone  = "none"
+	SeverityMinor = "minor"
+	SeverityMajor = "major"
+)
+
+// Issue is one review finding.
+type Issue struct {
+	Line    *int    `json:"line"`
+	Problem string  `json:"problem"`
+	Fix     *string `json:"fix"`
+}
+
+// Verdict is the validator's review.
+type Verdict struct {
+	OK       bool           `json:"ok"`
+	Severity string         `json:"severity"`
+	Issues   []Issue        `json:"issues"`
+	Rewrite  *GeneratedCode `json:"rewrite"`
+}
+
+// VerdictSchema is the JSON schema of Verdict, strict-mode compatible (every property
+// required, optional values nullable).
+func VerdictSchema() *jsonschema.Schema {
+	code := GeneratorSchema()
+	code.Types = []string{"object", "null"}
+	code.Type = ""
+	return &jsonschema.Schema{
+		Type:     "object",
+		Required: []string{"ok", "severity", "issues", "rewrite"},
+		Properties: map[string]*jsonschema.Schema{
+			"ok":       {Type: "boolean", Description: "true when the code can be committed as is"},
+			"severity": {Type: "string", Enum: []any{SeverityNone, SeverityMinor, SeverityMajor}},
+			"issues": {
+				Type: "array",
+				Items: &jsonschema.Schema{
+					Type:     "object",
+					Required: []string{"line", "problem", "fix"},
+					Properties: map[string]*jsonschema.Schema{
+						"line":    {Types: []string{"integer", "null"}, Description: "line in the symbol code, 1-based"},
+						"problem": {Type: "string"},
+						"fix":     {Types: []string{"string", "null"}},
+					},
+					AdditionalProperties: falseSchema(),
+				},
+			},
+			"rewrite": code,
+		},
+		AdditionalProperties: falseSchema(),
+	}
+}
