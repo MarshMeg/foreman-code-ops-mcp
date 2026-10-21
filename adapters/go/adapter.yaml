@@ -1,0 +1,13 @@
+lang: go
+grammar: go
+extensions: [.go]
+symbols_query: symbols.scm
+body_fields:
+  function: body
+  method: body
+leading_comments: [comment]
+wrap_single: [type_declaration]
+new_file:
+  template: |
+    package {{.Package}}
+  package_regexp: '(?m)^package\s+([A-Za-z_][A-Za-z0-9_]*)'

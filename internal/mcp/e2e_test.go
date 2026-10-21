@@ -1,0 +1,65 @@
+package mcp
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/MarshMeg/foreman-code-ops/internal/config"
+	"github.com/MarshMeg/foreman-code-ops/internal/lang/builtin"
+	"github.com/MarshMeg/foreman-code-ops/internal/ops"
+	"github.com/MarshMeg/foreman-code-ops/internal/project"
+	tu "github.com/MarshMeg/foreman-code-ops/internal/testutil"
+
+	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
+func connectProject(t *testing.T, dir string) *sdk.ClientSession {
+	t.Helper()
+	proj, err := project.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg, err := builtin.Registry()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Default()
+	return connect(t, Deps{ProjectDir: proj.Root, Config: cfg, Ops: ops.New(proj, reg, cfg, nil)})
+}
+
+func TestE2ESymbolAndFileTools(t *testing.T) {
+	dir := tu.RepoFromFixture(t, "../../testdata/go-layered")
+	cs := connectProject(t, dir)
+
+	got := decode[GetSymbolOutput](t, call(t, cs, "get_symbol", map[string]any{"file": "internal/repo/book.go", "symbol": "memRepo.List"}))
+	if got.Kind != "method" || !strings.HasPrefix(got.Signature, "func (r *memRepo) List(") || got.StartLine != 31 {
+		t.Fatalf("get_symbol = %+v", got)
+	}
+
+	res := call(t, cs, "get_symbol", map[string]any{"file": "internal/repo/book.go", "symbol": "Repo.List"})
+	if !res.IsError || !strings.Contains(res.Content[0].(*sdk.TextContent).Text, "similar: memRepo.List") {
+		t.Fatalf("expected not-found with candidates, got %+v", res.Content)
+	}
+
+	del := decode[ChangeOutput](t, call(t, cs, "delete_symbol", map[string]any{"file": "internal/service/book.go", "symbol": "BookService"}))
+	if del.Status != "refused" || len(del.References) == 0 {
+		t.Fatalf("delete_symbol = %+v", del)
+	}
+
+	del = decode[ChangeOutput](t, call(t, cs, "delete_symbol", map[string]any{"file": "internal/service/book.go", "symbol": "unusedHelper"}))
+	if del.Status != "applied" || del.Commit == "" || !strings.Contains(del.Diff, "-func unusedHelper") {
+		t.Fatalf("delete_symbol = %+v", del)
+	}
+
+	cr := decode[ChangeOutput](t, call(t, cs, "create_file", map[string]any{"path": "internal/repo/author.go"}))
+	if cr.Status != "applied" || !strings.Contains(cr.Diff, "+package repo") {
+		t.Fatalf("create_file = %+v", cr)
+	}
+	df := decode[ChangeOutput](t, call(t, cs, "delete_file", map[string]any{"path": "internal/repo/author.go"}))
+	if df.Status != "applied" {
+		t.Fatalf("delete_file = %+v", df)
+	}
+	if n := strings.Count(tu.Git(t, dir, "log", "--format=%s"), "foreman: "); n != 3 {
+		t.Fatalf("foreman commits = %d", n)
+	}
+}

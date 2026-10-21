@@ -1,0 +1,50 @@
+# foreman-code-ops configuration.
+#
+# Locations, lowest to highest priority:
+#   ~/.config/foreman-code-ops/config.yaml   global
+#   <project>/.foreman/config.yaml           project
+#   FOREMAN_* environment variables          e.g. FOREMAN_GENERATOR_MODEL, FOREMAN_MAX_REVIEWS
+#   CLI flags                                e.g. --generator-model, --max-reviews, --validator-provider none
+#
+# Print the effective configuration with: foreman-code-ops config --project .
+# Every key is optional; omitted keys keep the defaults shown here.
+
+generator:
+  provider: openai              # openai | openrouter | anthropic | agent-sdk
+  base_url: http://127.0.0.1:8080/v1
+  model: local
+  api_key_env: ""               # env var with the API key, if the endpoint needs one
+  temperature: 0.2
+  slots: 3                      # must match llama-server -np
+  slot_ctx: 65536               # tokens per slot = llama-server -c / -np
+  output_reserve: 8192          # tokens kept free for the answer
+  structured: json_schema       # json_schema | grammar | none
+
+validator:
+  provider: openrouter          # openai | openrouter | anthropic | agent-sdk | none
+  base_url: https://openrouter.ai/api/v1
+  model: z-ai/glm-5.3-flash
+  api_key_env: OPENROUTER_API_KEY
+  timeout: 120s
+  batch:
+    enabled: false              # reserved for background bulk review
+
+limits:                         # can also be overridden per upsert_symbol call
+  max_build_fixes: 3
+  max_reviews: 2
+  max_fallback_attempts: 2
+  max_parallel_reviews: 8
+  generate_timeout: 300s
+  check_timeout: 120s
+  test_timeout: 600s
+
+git:
+  dirty: refuse                 # refuse | include: touched files with uncommitted user changes
+  branch: ""                    # commit to this branch instead of the current one
+
+graph:
+  provider: codebase-memory     # codebase-memory | graphify | noop
+
+log:
+  level: info                   # debug | info | warn | error (logs go to stderr)
+  file: ""

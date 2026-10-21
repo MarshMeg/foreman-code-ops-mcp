@@ -1,0 +1,7 @@
+/dist/
+/foreman-code-ops
+*.test
+*.out
+coverage.*
+# per-project runtime state when dogfooding
+.foreman/cache/
