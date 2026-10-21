@@ -557,15 +557,18 @@ Generic-адаптер реализует этот интерфейс по YAML.
 - [x] Адаптер Go на YAML: `Symbols` (outline), `Find`, `NewFile`; вставка после якоря — `Find` + `edit.InsertAfter` вместо `InsertPoint`
 - [x] `edit`: замена, вставка, удаление по диапазонам
 - [x] `workspace`: diff, атомарная запись, откат
-- [ ] temp-копии для прогона гейта — перенесено на этап 2
+- [x] temp-копии для прогона гейта — заменены на overlay (этап 2); для языков без overlay — этап 6
 - [x] `gitops`: проверка dirty, stage файлов, коммит с трейлерами
 - [x] Инструменты `get_symbol`, `delete_symbol` (grep-проверка), `create_file`, `delete_file`
 - [x] Тесты на `testdata/go-layered`
 
 ### Этап 2 — гейт Go (1–2 дня)
-- [ ] `InsertImports`, `FixImports`, `Format`, `Check`, `Test`
-- [ ] Единый формат диагностик
-- [ ] Инструменты `check`, `run_tests`
+- [x] `InsertImports`, `FixImports`, `Format`, `Check`, `Test` — описаны в `toolchain` адаптера (YAML), исполняет `internal/gate`
+- [x] Единый формат диагностик
+- [x] Инструменты `check`, `run_tests`
+- [x] Кандидаты проверяются без записи на диск: `-overlay` для `go build`/`vet`/`test` (вместо temp-копий)
+- [x] `go build` по всему модулю (`scope: all`), чтобы ловить сломанные вызовы; `go vet` — по затронутым пакетам
+- [x] `delete_symbol`/`delete_file` проходят гейт: goimports чистит импорты, поломка сборки → отказ (или коммит с диагностиками при `force`)
 
 ### Этап 3 — генератор, слоты, бюджет (3 дня)
 - [ ] Провайдер `openai` с `response_format` и запасным GBNF

@@ -85,6 +85,47 @@ Add fixtures under `testdata/` and table tests next to the registry (see
 `internal/lang/builtin/golang_test.go`): symbol names and kinds, ranges with doc comments,
 signatures, nested and grouped declarations.
 
-## Coming next
+## Toolchain (the gate)
 
-The gate part of an adapter (imports, formatting, lint/build, tests) is added in stage 2.
+The `toolchain` section tells the gate how to fix, check and test files. Candidate code lives
+in memory until commit; checks see it through an overlay, so real files stay untouched.
+
+```yaml
+toolchain:
+  root_markers: [go.mod]        # where commands run when no service covers the file
+  overlay: true                 # checks read candidates via {overlay}
+  package_pattern: ./{dir}      # package argument for a directory
+  recursive_pattern: ./{dir}/...
+  all_packages: ./...
+  insert_imports: {name: insert imports, builtin: go-insert-imports}
+  fix:                          # applied to every changed file, in order
+    - {name: goimports, builtin: goimports}
+  check:                        # the gate stops at the first failing step
+    - name: go build
+      run: [go, build, -overlay, "{overlay}", -o, /dev/null, "{packages}"]
+      pattern: '^(?P<file>[^\s:#][^:]*\.go):(?P<line>\d+)(?::(?P<col>\d+))?: (?P<message>.*)$'
+      scope: all                # whole root, so broken callers are caught
+    - name: go vet
+      run: [go, vet, -overlay, "{overlay}", "{packages}"]
+      pattern: ...
+  test:
+    run: [go, test, -overlay, "{overlay}", "{packages}"]
+    filter: [-run, "{filter}"]
+```
+
+**Steps** are either `builtin` (implemented in Go, see `internal/gate/builtin.go`: `goimports`,
+`gofmt`, `go-insert-imports`) or `run` (an external command).
+
+- A `fix` command receives the file on stdin and must print the new content on stdout
+  (`{file}` is its path relative to the root).
+- A `check` command fails the gate when it exits non-zero. Its output is parsed with `pattern`
+  (named groups `file`, `line`, `col`, `message`); indented lines continue the previous
+  diagnostic, unmatched output becomes one diagnostic without a file. `severity: warning`
+  makes findings non-blocking. `scope: all` runs it on `all_packages` instead of the packages
+  of the touched files.
+
+**Placeholders:** `{file}`, `{files}`, `{packages}`, `{overlay}`, `{tmp}`, `{filter}`. An argument
+that is exactly `{files}` or `{packages}` expands to several arguments.
+
+Languages without overlay support (`overlay: false`) can check files on disk (`check` tool),
+but not unapplied candidates yet; that comes with the Python and TypeScript adapters.

@@ -83,7 +83,7 @@ func TestStatus(t *testing.T) {
 	if st.Version != "v0" || st.Generator.Slots != 3 || st.Validator.Enabled {
 		t.Fatalf("unexpected status %+v", st)
 	}
-	if len(st.Warnings) == 0 || !strings.Contains(st.Warnings[0], "validator disabled") {
+	if len(st.Warnings) == 0 || !strings.Contains(strings.Join(st.Warnings, "\n"), "validator disabled") {
 		t.Fatalf("warnings = %v", st.Warnings)
 	}
 }

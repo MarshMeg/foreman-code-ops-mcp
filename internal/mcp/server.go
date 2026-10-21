@@ -63,8 +63,8 @@ func NewServer(d Deps) *sdk.Server {
 
 	add(h, s, &sdk.Tool{
 		Name: "delete_symbol",
-		Description: "Delete a symbol and commit. Without force, refuses when references are found " +
-			"(via the code graph, or a name search when no graph is configured).",
+		Description: "Delete a symbol, fix imports and commit. Without force, refuses when references are found " +
+			"(via the code graph, or a name search when no graph is configured) or when the build or lint fails afterwards.",
 	}, h.deleteSymbol)
 
 	add(h, s, &sdk.Tool{
@@ -74,18 +74,20 @@ func NewServer(d Deps) *sdk.Server {
 
 	add(h, s, &sdk.Tool{
 		Name:        "delete_file",
-		Description: "Delete a file and commit.",
+		Description: "Delete a file and commit. Without force, refuses when the build or lint fails afterwards.",
 	}, h.deleteFile)
 
 	add(h, s, &sdk.Tool{
-		Name:        "check",
-		Description: "Run the gate (imports, format check, lint, build) without changing anything.",
-	}, notImplemented[CheckInput, CheckOutput]("check", 2))
+		Name: "check",
+		Description: "Run the gate without changing anything: build and lint for the given files/directories (default: whole project); " +
+			"listed files are also checked for formatting and imports.",
+	}, h.check)
 
 	add(h, s, &sdk.Tool{
-		Name:        "run_tests",
-		Description: "Run tests for a target with an optional name filter. Results are reported, never auto-fixed.",
-	}, notImplemented[RunTestsInput, TestResult]("run_tests", 2))
+		Name: "run_tests",
+		Description: "Run tests for a file's package, a directory (recursively) or the whole project, with an optional name filter. " +
+			"Results are reported, never auto-fixed.",
+	}, h.runTests)
 
 	add(h, s, &sdk.Tool{
 		Name:        "style_get",
@@ -189,6 +191,9 @@ func (h *handlers) status(context.Context, *sdk.CallToolRequest, struct{}) (*sdk
 		Graph:    GraphStatus{Provider: c.Graph.Provider},
 		Warnings: []string{},
 	}
+	if h.d.Ops != nil {
+		out.Warnings = append(out.Warnings, h.d.Ops.ToolWarnings()...)
+	}
 	if !out.Validator.Enabled {
 		out.Warnings = append(out.Warnings, "validator disabled: the build/lint gate is the only check")
 	} else if c.Validator.APIKeyEnv != "" {
@@ -215,12 +220,12 @@ func (h *handlers) deleteSymbol(ctx context.Context, _ *sdk.CallToolRequest, in 
 	return changeResult(h.d.Ops.DeleteSymbol(ctx, in.File, in.Symbol, in.Force))
 }
 
-func (h *handlers) createFile(ctx context.Context, _ *sdk.CallToolRequest, in FileInput) (*sdk.CallToolResult, ChangeOutput, error) {
+func (h *handlers) createFile(ctx context.Context, _ *sdk.CallToolRequest, in CreateFileInput) (*sdk.CallToolResult, ChangeOutput, error) {
 	return changeResult(h.d.Ops.CreateFile(ctx, in.Path, in.Package))
 }
 
-func (h *handlers) deleteFile(ctx context.Context, _ *sdk.CallToolRequest, in FileInput) (*sdk.CallToolResult, ChangeOutput, error) {
-	return changeResult(h.d.Ops.DeleteFile(ctx, in.Path))
+func (h *handlers) deleteFile(ctx context.Context, _ *sdk.CallToolRequest, in DeleteFileInput) (*sdk.CallToolResult, ChangeOutput, error) {
+	return changeResult(h.d.Ops.DeleteFile(ctx, in.Path, in.Force))
 }
 
 func changeResult(r ops.Result, err error) (*sdk.CallToolResult, ChangeOutput, error) {
@@ -228,7 +233,27 @@ func changeResult(r ops.Result, err error) (*sdk.CallToolResult, ChangeOutput, e
 		return nil, ChangeOutput{}, err
 	}
 	return nil, ChangeOutput{
-		Status: r.Status, Message: r.Message, Diff: r.Diff, Commit: r.Commit,
+		Status: r.Status, Message: r.Message, Diagnostics: r.Diagnostics, Diff: r.Diff, Commit: r.Commit,
 		References: r.References, Warnings: r.Warnings,
 	}, nil
+}
+
+func (h *handlers) check(ctx context.Context, _ *sdk.CallToolRequest, in CheckInput) (*sdk.CallToolResult, CheckOutput, error) {
+	rep, err := h.d.Ops.Check(ctx, in.Paths)
+	if err != nil {
+		return nil, CheckOutput{}, err
+	}
+	out := CheckOutput{OK: rep.OK, Diagnostics: rep.Diagnostics, Checked: rep.Checked, Warnings: rep.Warnings}
+	if out.Diagnostics == nil {
+		out.Diagnostics = []Diagnostic{}
+	}
+	if out.Checked == nil {
+		out.Checked = []string{}
+	}
+	return nil, out, nil
+}
+
+func (h *handlers) runTests(ctx context.Context, _ *sdk.CallToolRequest, in RunTestsInput) (*sdk.CallToolResult, TestResult, error) {
+	res, err := h.d.Ops.RunTests(ctx, in.Target, in.Filter)
+	return nil, res, err
 }

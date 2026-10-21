@@ -31,7 +31,11 @@ func newOps(t *testing.T, dir string, mutate ...func(*config.Config)) *Ops {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return New(proj, reg, cfg, nil)
+	o, err := New(proj, reg, cfg, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return o
 }
 
 func headFiles(t *testing.T, dir string) string {
@@ -172,7 +176,7 @@ func TestCreateAndDeleteFile(t *testing.T) {
 		t.Fatalf("plain file: %+v", res)
 	}
 
-	res, err = o.DeleteFile(ctx, "internal/service/author.go")
+	res, err = o.DeleteFile(ctx, "internal/service/author.go", false)
 	if err != nil || res.Status != StatusApplied {
 		t.Fatalf("delete: %+v %v", res, err)
 	}
@@ -182,7 +186,7 @@ func TestCreateAndDeleteFile(t *testing.T) {
 	if got := headFiles(t, dir); got != "foreman: delete internal/service/author.go\n\nD\tinternal/service/author.go\n" {
 		t.Fatalf("HEAD = %q", got)
 	}
-	if _, err := o.DeleteFile(ctx, "internal/service/author.go"); err == nil {
+	if _, err := o.DeleteFile(ctx, "internal/service/author.go", false); err == nil {
 		t.Fatal("deleting a missing file succeeded")
 	}
 }
@@ -228,5 +232,72 @@ func TestNotARepo(t *testing.T) {
 	}
 	if !strings.Contains(tu.ReadFile(t, dir, "a.go"), "func F") {
 		t.Fatal("file changed without a repo")
+	}
+}
+
+func TestDeleteSymbolRemovesUnusedImports(t *testing.T) {
+	dir := tu.RepoFromFixture(t, fixture)
+	o := newOps(t, dir)
+	res, err := o.DeleteSymbol(context.Background(), "internal/transport/http.go", "BookHandler.List", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Status != StatusApplied || len(res.Diagnostics) != 0 {
+		t.Fatalf("got %+v", res)
+	}
+	src := tu.ReadFile(t, dir, "internal/transport/http.go")
+	for _, gone := range []string{"encoding/json", "net/http", "internal/domain"} {
+		if strings.Contains(src, gone) {
+			t.Errorf("unused import %s kept:\n%s", gone, src)
+		}
+	}
+	if !strings.Contains(src, `"example.com/books/internal/service"`) {
+		t.Errorf("used import removed:\n%s", src)
+	}
+}
+
+func TestDeleteBreakingBuild(t *testing.T) {
+	dir := tu.RepoFromFixture(t, fixture)
+	o := newOps(t, dir)
+	ctx := context.Background()
+	head := tu.Git(t, dir, "rev-parse", "HEAD")
+
+	res, err := o.DeleteFile(ctx, "internal/repo/book.go", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Status != StatusRefused || len(res.Diagnostics) == 0 || res.Diagnostics[0].Source != "go build" {
+		t.Fatalf("got %+v", res)
+	}
+	if tu.ReadFile(t, dir, "internal/repo/book.go") == "" || tu.Git(t, dir, "rev-parse", "HEAD") != head {
+		t.Fatal("refused delete changed the repository")
+	}
+
+	res, err = o.DeleteSymbol(ctx, "internal/service/book.go", "BookService.List", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Status != StatusApplied || res.Commit == "" || len(res.Diagnostics) == 0 {
+		t.Fatalf("forced delete: %+v", res)
+	}
+}
+
+func TestCheckAndRunTests(t *testing.T) {
+	dir := tu.RepoFromFixture(t, fixture)
+	tu.WriteFile(t, dir, "internal/domain/ugly.go", "package domain\nfunc  Ugly( ) {}\n")
+	tu.WriteFile(t, dir, "internal/domain/book_test.go", "package domain\n\nimport \"testing\"\n\nfunc TestX(t *testing.T) {}\n")
+	o := newOps(t, dir)
+	ctx := context.Background()
+
+	rep, err := o.Check(ctx, []string{"internal/domain/ugly.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !rep.OK || len(rep.Diagnostics) != 1 || rep.Diagnostics[0].Source != "format" {
+		t.Fatalf("check = %+v", rep)
+	}
+	res, err := o.RunTests(ctx, "internal/domain", "TestX")
+	if err != nil || !res.Passed {
+		t.Fatalf("tests = %+v %v", res, err)
 	}
 }

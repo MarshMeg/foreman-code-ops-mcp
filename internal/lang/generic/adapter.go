@@ -40,6 +40,8 @@ type Spec struct {
 	// this definition (Go: `type X struct{}` is a type_declaration around one type_spec).
 	WrapSingle []string `yaml:"wrap_single"`
 	NewFile    NewFile  `yaml:"new_file"`
+	// Toolchain configures the gate: import insertion, fixers, checks and tests.
+	Toolchain lang.Toolchain `yaml:"toolchain"`
 }
 
 // NewFile describes new file content.
@@ -103,6 +105,9 @@ func New(spec Spec, language *ts.Language, symbolsQuery string) (*Adapter, error
 	if spec.Lang == "" || len(spec.Extensions) == 0 {
 		return nil, fmt.Errorf("adapter spec needs lang and extensions")
 	}
+	if err := spec.Toolchain.Validate(); err != nil {
+		return nil, fmt.Errorf("adapter %s: toolchain: %w", spec.Lang, err)
+	}
 	q, qerr := ts.NewQuery(language, symbolsQuery)
 	if qerr != nil {
 		return nil, fmt.Errorf("adapter %s: symbols query: %s", spec.Lang, qerr.Error())
@@ -138,8 +143,9 @@ func New(spec Spec, language *ts.Language, symbolsQuery string) (*Adapter, error
 	return a, nil
 }
 
-func (a *Adapter) Lang() string         { return a.spec.Lang }
-func (a *Adapter) Extensions() []string { return a.spec.Extensions }
+func (a *Adapter) Lang() string              { return a.spec.Lang }
+func (a *Adapter) Toolchain() lang.Toolchain { return a.spec.Toolchain }
+func (a *Adapter) Extensions() []string      { return a.spec.Extensions }
 
 // Close releases the compiled query.
 func (a *Adapter) Close() { a.query.Close() }

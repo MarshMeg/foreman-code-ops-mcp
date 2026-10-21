@@ -15,6 +15,7 @@ import (
 
 	"github.com/MarshMeg/foreman-code-ops/internal/config"
 	"github.com/MarshMeg/foreman-code-ops/internal/edit"
+	"github.com/MarshMeg/foreman-code-ops/internal/gate"
 	"github.com/MarshMeg/foreman-code-ops/internal/gitops"
 	"github.com/MarshMeg/foreman-code-ops/internal/lang"
 	"github.com/MarshMeg/foreman-code-ops/internal/project"
@@ -34,18 +35,20 @@ const maxReferences = 50
 
 // Result describes the outcome of a change.
 type Result struct {
-	Status     string
-	Message    string
-	Diff       string
-	Commit     string
-	References []string
-	Warnings   []string
+	Status      string
+	Message     string
+	Diagnostics []gate.Diagnostic
+	Diff        string
+	Commit      string
+	References  []string
+	Warnings    []string
 }
 
 // Ops serializes changes to one project.
 type Ops struct {
 	proj *project.Project
 	reg  *lang.Registry
+	gate *gate.Gate
 	cfg  config.Config
 	log  *slog.Logger
 
@@ -55,11 +58,15 @@ type Ops struct {
 }
 
 // New creates Ops for a project.
-func New(proj *project.Project, reg *lang.Registry, cfg config.Config, log *slog.Logger) *Ops {
+func New(proj *project.Project, reg *lang.Registry, cfg config.Config, log *slog.Logger) (*Ops, error) {
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
 	}
-	return &Ops{proj: proj, reg: reg, cfg: cfg, log: log}
+	g, err := gate.New(proj, reg, cfg.Limits)
+	if err != nil {
+		return nil, err
+	}
+	return &Ops{proj: proj, reg: reg, gate: g, cfg: cfg, log: log}, nil
 }
 
 // Project returns the project.
@@ -173,7 +180,7 @@ func (o *Ops) DeleteSymbol(ctx context.Context, file, name string, force bool) (
 	if err := cs.Write(rel, out); err != nil {
 		return Result{}, err
 	}
-	return o.commit(ctx, cs, gitops.Message{Subject: fmt.Sprintf("delete %s %s", rel, name)})
+	return o.gateAndCommit(ctx, cs, force, gitops.Message{Subject: fmt.Sprintf("delete %s %s", rel, name)})
 }
 
 // references finds uses of the symbol's last name segment outside its own definition.
@@ -252,8 +259,8 @@ func siblings(abs string) [][]byte {
 	return out
 }
 
-// DeleteFile removes a file.
-func (o *Ops) DeleteFile(ctx context.Context, file string) (Result, error) {
+// DeleteFile removes a file. It refuses when the build breaks without it, unless force.
+func (o *Ops) DeleteFile(ctx context.Context, file string, force bool) (Result, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
@@ -268,7 +275,35 @@ func (o *Ops) DeleteFile(ctx context.Context, file string) (Result, error) {
 	if err := cs.Delete(rel); err != nil {
 		return Result{}, err
 	}
-	return o.commit(ctx, cs, gitops.Message{Subject: "delete " + rel})
+	return o.gateAndCommit(ctx, cs, force, gitops.Message{Subject: "delete " + rel})
+}
+
+// gateAndCommit fixes imports and formatting in cs, runs the checks, and commits.
+// Failing checks refuse the change unless force, in which case it is committed and the
+// diagnostics are returned.
+func (o *Ops) gateAndCommit(ctx context.Context, cs *workspace.Changeset, force bool, msg gitops.Message) (Result, error) {
+	diags, err := o.gate.Prepare(ctx, cs, nil)
+	if err != nil {
+		return Result{}, err
+	}
+	if !gate.HasErrors(diags) {
+		rep, err := o.gate.Check(ctx, cs, nil)
+		if err != nil {
+			return Result{}, err
+		}
+		diags = append(diags, rep.Diagnostics...)
+	}
+	if gate.HasErrors(diags) && !force {
+		return Result{
+			Status:      StatusRefused,
+			Message:     "the change breaks the build or lint; fix the callers first or pass force=true",
+			Diagnostics: diags,
+			Diff:        cs.Diff(),
+		}, nil
+	}
+	res, err := o.commit(ctx, cs, msg)
+	res.Diagnostics = diags
+	return res, err
 }
 
 // commit checks for user changes in the touched files, applies cs and commits it.

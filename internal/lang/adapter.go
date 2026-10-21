@@ -40,6 +40,8 @@ type Adapter interface {
 	Find(src []byte, name string) (Symbol, error)
 	// NewFile returns the initial content of a new file at path.
 	NewFile(path string, opts NewFileOpts) ([]byte, error)
+	// Toolchain describes the gate steps for this language.
+	Toolchain() Toolchain
 }
 
 // ErrNotFound is returned (wrapped in *NotFoundError) when a symbol does not exist.

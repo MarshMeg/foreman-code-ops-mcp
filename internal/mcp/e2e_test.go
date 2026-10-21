@@ -24,7 +24,11 @@ func connectProject(t *testing.T, dir string) *sdk.ClientSession {
 		t.Fatal(err)
 	}
 	cfg := config.Default()
-	return connect(t, Deps{ProjectDir: proj.Root, Config: cfg, Ops: ops.New(proj, reg, cfg, nil)})
+	o, err := ops.New(proj, reg, cfg, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return connect(t, Deps{ProjectDir: proj.Root, Config: cfg, Ops: o})
 }
 
 func TestE2ESymbolAndFileTools(t *testing.T) {
@@ -61,5 +65,20 @@ func TestE2ESymbolAndFileTools(t *testing.T) {
 	}
 	if n := strings.Count(tu.Git(t, dir, "log", "--format=%s"), "foreman: "); n != 3 {
 		t.Fatalf("foreman commits = %d", n)
+	}
+}
+
+func TestE2ECheckAndRunTests(t *testing.T) {
+	dir := tu.RepoFromFixture(t, "../../testdata/go-layered")
+	tu.WriteFile(t, dir, "internal/domain/book_test.go", "package domain\n\nimport \"testing\"\n\nfunc TestFails(t *testing.T) { t.Fatal(\"boom\") }\n")
+	cs := connectProject(t, dir)
+
+	ch := decode[CheckOutput](t, call(t, cs, "check", map[string]any{}))
+	if !ch.OK || len(ch.Checked) != 2 {
+		t.Fatalf("check = %+v", ch)
+	}
+	tr := decode[TestResult](t, call(t, cs, "run_tests", map[string]any{"target": "internal/domain"}))
+	if !tr.Ran || tr.Passed || !strings.Contains(tr.Output, "boom") {
+		t.Fatalf("run_tests = %+v", tr)
 	}
 }

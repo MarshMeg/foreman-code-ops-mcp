@@ -8,6 +8,7 @@ import (
 
 // Registry maps file extensions to adapters.
 type Registry struct {
+	all    []Adapter
 	byExt  map[string]Adapter
 	byLang map[string]Adapter
 }
@@ -20,6 +21,7 @@ func NewRegistry(adapters ...Adapter) (*Registry, error) {
 			return nil, fmt.Errorf("duplicate adapter for language %q", a.Lang())
 		}
 		r.byLang[a.Lang()] = a
+		r.all = append(r.all, a)
 		for _, ext := range a.Extensions() {
 			ext = strings.ToLower(ext)
 			if other, dup := r.byExt[ext]; dup {
@@ -38,3 +40,6 @@ func (r *Registry) ForFile(path string) Adapter {
 
 // ForLang returns the adapter for a language name, or nil.
 func (r *Registry) ForLang(name string) Adapter { return r.byLang[name] }
+
+// All returns the adapters in registration order.
+func (r *Registry) All() []Adapter { return r.all }

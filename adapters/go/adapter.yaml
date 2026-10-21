@@ -11,3 +11,25 @@ new_file:
   template: |
     package {{.Package}}
   package_regexp: '(?m)^package\s+([A-Za-z_][A-Za-z0-9_]*)'
+
+toolchain:
+  root_markers: [go.mod]
+  overlay: true
+  package_pattern: ./{dir}
+  recursive_pattern: ./{dir}/...
+  all_packages: ./...
+  insert_imports: {name: insert imports, builtin: go-insert-imports}
+  fix:
+    - {name: goimports, builtin: goimports}
+  check:
+    # Build the whole module so callers broken by a change are reported too.
+    - name: go build
+      run: [go, build, -overlay, "{overlay}", -o, /dev/null, "{packages}"]
+      scope: all
+      pattern: '^(?P<file>[^\s:#][^:]*\.go):(?P<line>\d+)(?::(?P<col>\d+))?: (?P<message>.*)$'
+    - name: go vet
+      run: [go, vet, -overlay, "{overlay}", "{packages}"]
+      pattern: '^(?:vet: )?(?P<file>[^\s:#][^:]*\.go):(?P<line>\d+)(?::(?P<col>\d+))?: (?P<message>.*)$'
+  test:
+    run: [go, test, -overlay, "{overlay}", "{packages}"]
+    filter: [-run, "{filter}"]

@@ -1,6 +1,9 @@
 package mcp
 
-import "github.com/MarshMeg/foreman-code-ops/internal/config"
+import (
+	"github.com/MarshMeg/foreman-code-ops/internal/config"
+	"github.com/MarshMeg/foreman-code-ops/internal/gate"
+)
 
 // SymbolRef points to a symbol whose source the server resolves itself.
 type SymbolRef struct {
@@ -31,21 +34,10 @@ type Attempts struct {
 }
 
 // Diagnostic is a normalized gate finding.
-type Diagnostic struct {
-	File     string `json:"file"`
-	Line     int    `json:"line,omitempty"`
-	Column   int    `json:"column,omitempty"`
-	Severity string `json:"severity" jsonschema:"error or warning"`
-	Source   string `json:"source,omitempty" jsonschema:"tool that reported it, e.g. go build"`
-	Message  string `json:"message"`
-}
+type Diagnostic = gate.Diagnostic
 
 // TestResult summarizes a requested test run.
-type TestResult struct {
-	Ran    bool   `json:"ran"`
-	Passed bool   `json:"passed,omitempty"`
-	Output string `json:"output,omitempty"`
-}
+type TestResult = gate.TestResult
 
 // UpsertSymbolOutput is the result of upsert_symbol.
 type UpsertSymbolOutput struct {
@@ -77,23 +69,30 @@ type GetSymbolOutput struct {
 type DeleteSymbolInput struct {
 	File   string `json:"file" jsonschema:"path relative to the project root"`
 	Symbol string `json:"symbol" jsonschema:"symbol to delete"`
-	Force  bool   `json:"force,omitempty" jsonschema:"delete even if references are found"`
+	Force  bool   `json:"force,omitempty" jsonschema:"delete even if references are found or the build breaks"`
 }
 
-// FileInput is the input of create_file and delete_file.
-type FileInput struct {
+// CreateFileInput is the input of create_file.
+type CreateFileInput struct {
 	Path    string `json:"path" jsonschema:"path relative to the project root"`
 	Package string `json:"package,omitempty" jsonschema:"package name for a new Go file"`
 }
 
+// DeleteFileInput is the input of delete_file.
+type DeleteFileInput struct {
+	Path  string `json:"path" jsonschema:"path relative to the project root"`
+	Force bool   `json:"force,omitempty" jsonschema:"delete even if the build breaks without the file"`
+}
+
 // ChangeOutput is the result of operations that edit and commit files.
 type ChangeOutput struct {
-	Status     string   `json:"status" jsonschema:"applied, unchanged, refused (nothing written) or failed (written but not committed)"`
-	Message    string   `json:"message,omitempty" jsonschema:"why the operation was refused or failed"`
-	Diff       string   `json:"diff,omitempty"`
-	Commit     string   `json:"commit,omitempty"`
-	References []string `json:"references,omitempty" jsonschema:"places that still use a deleted symbol"`
-	Warnings   []string `json:"warnings,omitempty"`
+	Status      string       `json:"status" jsonschema:"applied, unchanged, refused (nothing written) or failed (written but not committed)"`
+	Message     string       `json:"message,omitempty" jsonschema:"why the operation was refused or failed"`
+	Diagnostics []Diagnostic `json:"diagnostics,omitempty" jsonschema:"gate findings for the change"`
+	Diff        string       `json:"diff,omitempty"`
+	Commit      string       `json:"commit,omitempty"`
+	References  []string     `json:"references,omitempty" jsonschema:"places that still use a deleted symbol"`
+	Warnings    []string     `json:"warnings,omitempty"`
 }
 
 // CheckInput is the input of check.
@@ -103,8 +102,10 @@ type CheckInput struct {
 
 // CheckOutput is the result of check.
 type CheckOutput struct {
-	OK          bool         `json:"ok"`
+	OK          bool         `json:"ok" jsonschema:"false when any diagnostic is an error"`
 	Diagnostics []Diagnostic `json:"diagnostics"`
+	Checked     []string     `json:"checked" jsonschema:"root: step pairs that ran"`
+	Warnings    []string     `json:"warnings,omitempty"`
 }
 
 // RunTestsInput is the input of run_tests.

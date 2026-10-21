@@ -119,7 +119,10 @@ func serve(args []string, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	o := ops.New(proj, reg, cfg, logger)
+	o, err := ops.New(proj, reg, cfg, logger)
+	if err != nil {
+		return err
+	}
 	s := mcp.NewServer(mcp.Deps{Version: version, ProjectDir: proj.Root, Config: cfg, Logger: logger, Journal: j, Ops: o})
 	if err := s.Run(ctx, &sdk.StdioTransport{}); err != nil && !errors.Is(err, context.Canceled) {
 		return err
