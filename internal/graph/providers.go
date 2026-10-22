@@ -196,8 +196,8 @@ func (g *graphify) Available(context.Context) (bool, string) {
 	return false, "graphify-out/graph.json not built yet; foreman builds it on the first graph query, or run: graphify update ."
 }
 
-// Reindex runs `graphify update .` in the background unless graphify's own git hook rebuilds the
-// graph on commit.
+// Reindex rebuilds the graph in the background unless graphify's own git hook rebuilds the graph
+// on commit. It goes through Build so that graphify-out/ stays out of git status.
 func (g *graphify) Reindex(context.Context, []string) error {
 	if g.cfg.AutoIndex {
 		return nil
@@ -206,8 +206,7 @@ func (g *graphify) Reindex(context.Context, []string) error {
 		return nil
 	}
 	g.bg.submit(func(ctx context.Context) error {
-		_, _, err := g.cli(ctx, "update", ".")
-		return err
+		return g.Build(ctx)
 	})
 	return nil
 }
