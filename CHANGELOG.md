@@ -3,7 +3,7 @@
 All notable changes are listed here. Versions follow [semantic versioning](https://semver.org);
 the release workflow takes the notes for a tag from its section.
 
-## [Unreleased]
+## [0.1.1]
 
 - Plugin skill `/foreman-code-ops:setup`: installs the binary and configures a project (init,
   workspace review, generator and validator, tool checks, style guide, commit).

@@ -1,6 +1,6 @@
 {
   "name": "foreman-agent-sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Claude Agent SDK sidecar for foreman-code-ops (provider: agent-sdk)",
   "type": "module",

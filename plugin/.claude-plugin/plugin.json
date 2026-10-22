@@ -1,6 +1,6 @@
 {
   "name": "foreman-code-ops",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Claude plans, a local or cheap model writes code symbol by symbol, a gate and an optional validator check it, and every change is committed.",
   "author": { "name": "MarshMeg" },
   "homepage": "https://github.com/MarshMeg/foreman-code-ops-mcp",
