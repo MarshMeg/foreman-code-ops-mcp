@@ -72,3 +72,23 @@ func (g *graphify) Build(ctx context.Context) error {
 	_, _, err := g.cli(ctx, "update", ".")
 	return err
 }
+
+// fresh waits for a running reindex and rebuilds the graph when it is missing or older than the
+// last commit, so commits made outside foreman are seen too.
+func (g *graphify) fresh(ctx context.Context) error {
+	if err := g.bg.waitCtx(ctx); err != nil {
+		return err
+	}
+	st, statErr := os.Stat(g.path())
+	if statErr == nil && !st.ModTime().Before(g.headTime(ctx)) {
+		return nil
+	}
+	if err := g.Build(ctx); err != nil {
+		// A stale graph is better than none.
+		if statErr == nil {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
