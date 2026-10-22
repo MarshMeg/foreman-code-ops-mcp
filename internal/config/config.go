@@ -175,7 +175,7 @@ func Default() Config {
 			TestTimeout:         Duration(600 * time.Second),
 		},
 		Git:      Git{Dirty: "refuse"},
-		Graph:    Graph{Provider: "codebase-memory"},
+		Graph:    Graph{Provider: "graphify"},
 		AgentSDK: AgentSDK{Command: "foreman-agent-sdk"},
 		LSP:      LSP{IdleTimeout: Duration(10 * time.Minute)},
 		Log:      Log{Level: "info"},
