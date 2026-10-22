@@ -35,6 +35,24 @@ type Query struct {
 	Budget   int      // output cap in tokens; 0 uses graphify's default
 }
 
+// Overview returns graphify's report (summary, core abstractions, communities) without the bare list of community names.
+func (g *graphify) Overview(ctx context.Context) (string, error) {
+	if err := g.fresh(ctx); err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(g.reportPath())
+	if err != nil {
+		return "", fmt.Errorf("%w: graphify-out/GRAPH_REPORT.md: %w", ErrUnavailable, err)
+	}
+	// The community hubs section is a bare list of names and carries no information.
+	report := dropSection(string(data), "## Community Hubs")
+	const maxOverview = 24000
+	if len(report) > maxOverview {
+		report = report[:maxOverview] + "\n\n[truncated; use graph_query or graph_node for details]\n"
+	}
+	return report, nil
+}
+
 // cli runs graphify in the project root with LLM backends disabled. It returns stdout (with stderr
 // for exit codes 3 and 4, where graphify lists candidates or reports no match) and the exit code.
 func (g *graphify) cli(ctx context.Context, args ...string) (string, int, error) {
