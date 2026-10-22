@@ -10,8 +10,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/MarshMeg/foreman-code-ops-mcp/internal/config"
 )
@@ -168,6 +170,19 @@ func (g *graphify) path() string { return filepath.Join(g.root, "graphify-out", 
 // reportPath returns the location of the human-readable report that graphify writes next to graph.json.
 func (g *graphify) reportPath() string {
 	return filepath.Join(g.root, "graphify-out", "GRAPH_REPORT.md")
+}
+
+// headTime returns the time of the last commit, or the zero time.
+func (g *graphify) headTime(ctx context.Context) time.Time {
+	out, err := run(ctx, g.root, nil, "git", "log", "-1", "--format=%ct")
+	if err != nil {
+		return time.Time{}
+	}
+	sec, err := strconv.ParseInt(strings.TrimSpace(string(out)), 10, 64)
+	if err != nil {
+		return time.Time{}
+	}
+	return time.Unix(sec, 0)
 }
 
 func (g *graphify) Available(context.Context) (bool, string) {
