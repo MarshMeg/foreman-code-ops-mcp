@@ -106,6 +106,15 @@ func (g *graphify) ask(ctx context.Context, args ...string) (string, error) {
 	return "", err
 }
 
+// Explain returns one node (source location, community) and its connections.
+func (g *graphify) Explain(ctx context.Context, name string, all bool) (string, error) {
+	args := []string{"explain", name}
+	if all {
+		args = append(args, "--all")
+	}
+	return g.ask(ctx, args...)
+}
+
 // Query returns the part of the graph relevant to a question.
 func (g *graphify) Query(ctx context.Context, q Query) (string, error) {
 	args := []string{"query", q.Question}
