@@ -68,7 +68,7 @@ jobs:
       - run: |
           echo "PNPM_HOME=$RUNNER_TEMP/pnpm" >> "$GITHUB_ENV"
           echo "$RUNNER_TEMP/pnpm/bin" >> "$GITHUB_PATH"
-      - run: pnpm add -g typescript prettier @biomejs/biome eslint vitest
+      - run: pnpm add -g typescript prettier @biomejs/biome@2.5.15 eslint vitest
       # Rust (cargo, rustfmt) is preinstalled on GitHub runners; make sure rustfmt is there.
       - run: rustup component add rustfmt
       # Language servers for the LSP tests (pyright-langserver comes with pyright, tsc --lsp with TypeScript 7).
