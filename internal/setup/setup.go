@@ -25,12 +25,19 @@ type Options struct {
 	Extensions []string
 	// Permissions writes the deny rules into .claude/settings.json.
 	Permissions bool
-	// MCP registers the server in the project's .mcp.json (not needed with the plugin).
+	// MCP registers the server in the project's .mcp.json and approves it in
+	// .claude/settings.json. The plugin does not start the server globally, so this is how a
+	// project turns foreman on.
 	MCP bool
 	// Binary is the command written to .mcp.json.
 	Binary string
 	// ForceWorkspace overwrites an existing workspace.yaml.
 	ForceWorkspace bool
+	// ClaudeMD writes the foreman section into CLAUDE.md: read code through the graph, write it
+	// through foreman.
+	ClaudeMD bool
+	// Graphify means the project uses the graphify code graph: graphify-out/ is ignored by git.
+	Graphify bool
 }
 
 // Report lists what Init did, as human-readable lines.
