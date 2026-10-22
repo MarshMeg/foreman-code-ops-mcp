@@ -62,3 +62,13 @@ func (g *graphify) cli(ctx context.Context, args ...string) (string, int, error)
 	}
 	return "", code, fmt.Errorf("graphify %s: %w: %s", args[0], err, msg)
 }
+
+// Build creates or refreshes the graph synchronously (code only, no LLM).
+func (g *graphify) Build(ctx context.Context) error {
+	if _, err := exec.LookPath(g.bin); err != nil {
+		return fmt.Errorf("%w: %s not found in PATH (install it: uv tool install graphifyy)", ErrUnavailable, g.bin)
+	}
+	// "update" builds graph.json and GRAPH_REPORT.md from scratch when they are missing.
+	_, _, err := g.cli(ctx, "update", ".")
+	return err
+}
