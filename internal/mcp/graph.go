@@ -54,6 +54,13 @@ func (h *handlers) explore(fn func(graph.Explorer) (string, error)) (*sdk.CallTo
 	return nil, GraphOutput{Text: text}, nil
 }
 
+// graphPath handles graph_path: it returns the shortest path between two nodes.
+func (h *handlers) graphPath(ctx context.Context, _ *sdk.CallToolRequest, in GraphPathInput) (*sdk.CallToolResult, GraphOutput, error) {
+	return h.explore(func(e graph.Explorer) (string, error) {
+		return e.Path(ctx, in.From, in.To, in.Undirected)
+	})
+}
+
 // graphNode handles graph_node: it explains one node and its connections.
 func (h *handlers) graphNode(ctx context.Context, _ *sdk.CallToolRequest, in GraphNodeInput) (*sdk.CallToolResult, GraphOutput, error) {
 	return h.explore(func(e graph.Explorer) (string, error) {
