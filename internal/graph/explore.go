@@ -173,3 +173,19 @@ func (g *graphify) fresh(ctx context.Context) error {
 	}
 	return nil
 }
+
+// Explorer is implemented by providers that answer Claude's questions about the code: project
+// structure, symbols and their connections, paths and impact. Only graphify implements it; other
+// graphs have their own MCP servers.
+type Explorer interface {
+	// Overview returns the project report: summary, core abstractions, communities.
+	Overview(ctx context.Context) (string, error)
+	// Query returns the part of the graph relevant to a question.
+	Query(ctx context.Context, q Query) (string, error)
+	// Explain returns one node and its connections.
+	Explain(ctx context.Context, name string, all bool) (string, error)
+	// Path returns the shortest path between two nodes.
+	Path(ctx context.Context, from, to string, undirected bool) (string, error)
+	// Affected returns the nodes that depend on a node, transitively up to depth.
+	Affected(ctx context.Context, name string, depth int, relations []string) (string, error)
+}
