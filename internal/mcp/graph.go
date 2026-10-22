@@ -54,6 +54,19 @@ func (h *handlers) explore(fn func(graph.Explorer) (string, error)) (*sdk.CallTo
 	return nil, GraphOutput{Text: text}, nil
 }
 
+// graphQuery handles graph_query: it returns the part of the code graph relevant to a question.
+func (h *handlers) graphQuery(ctx context.Context, _ *sdk.CallToolRequest, in GraphQueryInput) (*sdk.CallToolResult, GraphOutput, error) {
+	return h.explore(func(e graph.Explorer) (string, error) {
+		return e.Query(ctx, graph.Query{
+			Question: in.Question,
+			Seeds:    in.Seeds,
+			Context:  in.Context,
+			DFS:      in.DFS,
+			Budget:   in.Budget,
+		})
+	})
+}
+
 // graphOverview handles graph_overview: it returns the project report with the summary, core
 // abstractions and communities.
 func (h *handlers) graphOverview(ctx context.Context, _ *sdk.CallToolRequest, _ struct{}) (*sdk.CallToolResult, GraphOutput, error) {
