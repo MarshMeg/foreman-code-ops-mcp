@@ -157,17 +157,20 @@ func printConfig(args []string, stderr io.Writer) error {
 	return config.Write(os.Stdout, cfg)
 }
 
-// initProject prepares a project: services draft, Claude Code deny rules for files foreman
-// edits, optional .mcp.json entry, and a .gitignore line for runtime files.
+// initProject connects a project to foreman: services draft, deny rules for files foreman edits,
+// the project MCP server, the CLAUDE.md section, .gitignore lines and the code graph.
 func initProject(args []string, stderr io.Writer) error {
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	dir := fs.String("project", ".", "project root")
 	force := fs.Bool("force", false, "regenerate an existing .foreman/workspace.yaml")
 	noPerms := fs.Bool("no-permissions", false, "do not add permissions.deny rules to .claude/settings.json")
-	mcpEntry := fs.Bool("mcp", false, "register the server in the project's .mcp.json (not needed with the plugin)")
+	mcpEntry := fs.Bool("mcp", true, "register the server in the project's .mcp.json and approve it in .claude/settings.json (the plugin does not start it globally)")
 	binary := fs.String("binary", "foreman-code-ops", "command written to .mcp.json")
 	extFlag := fs.String("extensions", "", "comma-separated extensions to route through foreman (default: by detected languages)")
+	noClaudeMD := fs.Bool("no-claude-md", false, "do not write the foreman section into CLAUDE.md")
+	noGraph := fs.Bool("no-graph", false, "do not build the code graph now")
+	globalPath := fs.String("config", "", "global config file (default ~/.config/foreman-code-ops/config.yaml)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -175,19 +178,37 @@ func initProject(args []string, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
+	if *globalPath == "" {
+		if p, err := config.GlobalConfigPath(); err == nil {
+			*globalPath = p
+		}
+	}
+	cfg, err := config.Load(config.Options{
+		GlobalPath: *globalPath,
+		ProjectDir: root,
+		LookupEnv:  os.LookupEnv,
+	})
+	if err != nil {
+		fmt.Fprintf(stderr, "warning: config: %v; using defaults\n", err)
+		cfg = config.Default()
+	}
 	exts, err := initExtensions(root, *extFlag)
 	if err != nil {
 		return err
 	}
 	rep, err := setup.Init(setup.Options{Root: root, Extensions: exts, Permissions: !*noPerms,
-		MCP: *mcpEntry, Binary: *binary, ForceWorkspace: *force})
+		MCP: *mcpEntry, Binary: *binary, ForceWorkspace: *force,
+		ClaudeMD: !*noClaudeMD, Graphify: cfg.Graph.Provider == "graphify"})
 	for _, l := range rep.Lines {
 		fmt.Fprintln(stderr, l)
 	}
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(stderr, "next: review and commit these files; ask Claude to create .foreman/style.md with style_set")
+	if !*noGraph {
+		buildGraph(cfg, root, stderr)
+	}
+	fmt.Fprintln(stderr, "next: review and commit these files, then start a new Claude Code session in this project so the foreman MCP server loads; ask Claude to create .foreman/style.md with style_set")
 	return nil
 }
 
