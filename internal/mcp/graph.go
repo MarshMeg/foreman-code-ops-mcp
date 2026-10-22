@@ -5,6 +5,13 @@ type GraphOutput struct {
 	Text string `json:"text" jsonschema:"the code graph's answer"`
 }
 
+// GraphAffectedInput is the input of graph_affected.
+type GraphAffectedInput struct {
+	Name      string   `json:"name" jsonschema:"symbol, file path or node id whose dependents you want"`
+	Depth     int      `json:"depth,omitempty" jsonschema:"how many hops back (default 2)"`
+	Relations []string `json:"relations,omitempty" jsonschema:"edge relations to follow, e.g. calls, references, imports (default: all uses)"`
+}
+
 // GraphPathInput is the input of graph_path.
 type GraphPathInput struct {
 	From       string `json:"from" jsonschema:"start node: symbol, file path or node id"`
