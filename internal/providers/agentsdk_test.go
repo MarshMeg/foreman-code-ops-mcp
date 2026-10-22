@@ -176,7 +176,7 @@ func TestAgentSDKMissingCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = a.Complete(context.Background(), Request{Messages: []Message{{Role: "user", Content: "x"}}})
-	if err == nil || !strings.Contains(err.Error(), "npm install -g ./sidecar/agent-sdk") {
+	if err == nil || !strings.Contains(err.Error(), "pnpm add -g foreman-agent-sdk-") {
 		t.Fatalf("got %v", err)
 	}
 	if _, err := New(Spec{Provider: "agent-sdk", Model: "m"}); err == nil {

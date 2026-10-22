@@ -195,7 +195,8 @@ func (in *infra) loadContracts(root string, svcs []project.Service) {
 				in.ops[s.Name][op] = true
 			}
 		}
-		filepath.WalkDir(filepath.Join(root, s.Root), func(p string, d os.DirEntry, err error) error {
+		// The callback skips unreadable entries, so the walk itself never fails.
+		_ = filepath.WalkDir(filepath.Join(root, s.Root), func(p string, d os.DirEntry, err error) error {
 			if err != nil {
 				return nil
 			}

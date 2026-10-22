@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -172,8 +173,10 @@ func (r *Repo) Grep(ctx context.Context, word string) ([]GrepMatch, error) {
 		if len(parts) != 3 {
 			continue
 		}
-		var n int
-		fmt.Sscan(parts[1], &n)
+		n, err := strconv.Atoi(parts[1])
+		if err != nil {
+			continue
+		}
 		matches = append(matches, GrepMatch{Path: parts[0], Line: n, Text: parts[2]})
 		paths = append(paths, parts[0])
 	}

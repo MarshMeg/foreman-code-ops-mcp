@@ -75,7 +75,8 @@ func TestRealServers(t *testing.T) {
 			if hit == nil {
 				t.Fatalf("no error containing %q in %+v", c.want, ds)
 			}
-			wantLine := strings.Count(candidate[:strings.Index(candidate, c.to)], "\n") + 1 + strings.Count(c.to, "\n")
+			at := strings.Index(candidate, c.to)
+			wantLine := strings.Count(candidate[:max(at, 0)], "\n") + 1 + strings.Count(c.to, "\n")
 			if hit.Line != wantLine || hit.File != path {
 				t.Errorf("error at %s:%d, want line %d", hit.File, hit.Line, wantLine)
 			}

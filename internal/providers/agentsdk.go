@@ -157,7 +157,7 @@ func (a *AgentSDK) startLocked() error {
 	p := &sidecarProc{cmd: cmd, stdin: stdin, stderr: &tailBuffer{max: 4096}, done: make(chan struct{})}
 	cmd.Stderr = p.stderr
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("%s: start sidecar %q: %w (install it with: npm install -g ./sidecar/agent-sdk, or set agent_sdk.command)",
+		return fmt.Errorf("%s: start sidecar %q: %w (install it with: pnpm add -g foreman-agent-sdk-<version>.tgz from the release, or set agent_sdk.command)",
 			a.Name(), strings.Join(a.argv, " "), err)
 	}
 	a.proc = p

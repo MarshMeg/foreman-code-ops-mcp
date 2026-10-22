@@ -69,6 +69,37 @@ Claude вызывает `upsert_symbol` вместо `Edit`/`Write`. Кажды�
 С плагином инструменты называются `mcp__plugin_foreman-code-ops_foreman__<tool>`, при записи в
 `.mcp.json` проекта — `mcp__foreman__<tool>`.
 
+### Или пусть Claude поставит всё сам
+
+Вставьте этот промт в Claude Code в своём проекте. Claude выполнит шаги выше и спросит вас только
+о том, что не сможет выяснить сам:
+
+```text
+Установи и настрой MCP-сервер foreman-code-ops (https://github.com/MarshMeg/foreman-code-ops-mcp)
+для этого проекта. Сначала прочитай его README и docs/config.md.
+
+1. Установи бинарник: выполни
+   curl -fsSL https://raw.githubusercontent.com/MarshMeg/foreman-code-ops-mcp/main/scripts/install.sh | sh
+   (если не получится — `go install github.com/MarshMeg/foreman-code-ops-mcp/cmd/foreman-code-ops@latest`),
+   затем проверь `foreman-code-ops version` и что его каталог есть в PATH.
+2. Установи плагин: `claude plugin marketplace add MarshMeg/foreman-code-ops-mcp`, затем
+   `claude plugin install foreman-code-ops@foreman-code-ops`.
+3. Выполни `foreman-code-ops init --project .` и сверь .foreman/workspace.yaml с реальными
+   сервисами репозитория (корни, языки, кто кого вызывает); исправь, если нужно.
+4. Спроси меня, какой генератор использовать (локальный llama-server: base URL, модель, число
+   слотов и контекст на слот; или OpenRouter / Anthropic) и какой валидатор (по умолчанию
+   OpenRouter с z-ai/glm-5.3-flash, Anthropic или none). Запиши ответы в .foreman/config.yaml.
+   Никогда не записывай API-ключи в файлы: скажи, какую переменную окружения мне задать.
+5. Если генератор — llama-server, проверь, что он отвечает (GET <base_url>/models) и что его
+   -np и -c совпадают со slots и slot_ctx.
+6. Проверь, что инструменты гейта для языков проекта установлены (линтеры, проверка типов, тесты
+   из таблицы языков в README), и перечисли, чего не хватает.
+7. Покажи `foreman-code-ops config --project .` и скажи мне перезапустить Claude Code, чтобы
+   загрузился плагин. После перезапуска вызови инструмент `status` и устрани его предупреждения.
+8. Изучи код и напиши короткий гайд по стилю через `style_set` (на английском, по секции на язык).
+9. Закоммить .foreman/ и .claude/settings.json отдельным коммитом.
+```
+
 ## Языки
 
 | Язык | Файлы | Исправление | Проверка | Тесты |

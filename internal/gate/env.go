@@ -20,9 +20,6 @@ import (
 	"github.com/MarshMeg/foreman-code-ops-mcp/internal/workspace"
 )
 
-// maxCopiedConfig is the largest top-level file copied (not symlinked) into a shadow root.
-const maxCopiedConfig = 1 << 20
-
 // env is where commands of one root run for one changeset: the real root with an overlay
 // file (Go), or a shadow root holding the candidate files (tools that read the disk).
 type env struct {
@@ -160,8 +157,11 @@ func (g *Gate) buildShadow(root, realDir string, cs *workspace.Changeset) (strin
 		if err := os.WriteFile(p, content, 0o644); err != nil {
 			return fail(err)
 		}
+		// A newer mtime makes incremental tools (tsc, cargo) see the candidate.
 		now := time.Now().Add(time.Second)
-		os.Chtimes(p, now, now)
+		if err := os.Chtimes(p, now, now); err != nil {
+			return fail(err)
+		}
 	}
 	return dir, mu.Unlock, nil
 }

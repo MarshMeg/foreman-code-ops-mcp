@@ -5,9 +5,16 @@ Sidecar for foreman-code-ops provider `agent-sdk`: runs Claude through the
 requests over stdin/stdout, one JSON object per line.
 
 ```bash
-npm install -g ./sidecar/agent-sdk
-foreman-agent-sdk          # normally started by foreman, not by hand
+# from a release (installs the foreman-agent-sdk command)
+pnpm add -g https://github.com/MarshMeg/foreman-code-ops-mcp/releases/download/v0.1.0/foreman-agent-sdk-0.1.0.tgz
+
+# from a checkout
+pnpm --dir sidecar/agent-sdk pack --pack-destination /tmp
+pnpm add -g /tmp/foreman-agent-sdk-0.1.0.tgz
 ```
+
+`pnpm add -g ./sidecar/agent-sdk` only links the directory without installing its
+dependencies; install from a packed tarball as above. foreman starts the command itself.
 
 Authentication is the Agent SDK's: `ANTHROPIC_API_KEY`, or `CLAUDE_CODE_USE_BEDROCK`,
 `CLAUDE_CODE_USE_VERTEX`, `CLAUDE_CODE_USE_FOUNDRY` with that platform's credentials.

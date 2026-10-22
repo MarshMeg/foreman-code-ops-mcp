@@ -26,11 +26,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
       - run: pip install ruff pyright mypy pytest
-      - run: npm install -g typescript prettier @biomejs/biome eslint vitest
+      # Global pnpm installs need a bin directory on PATH.
+      - run: |
+          echo "PNPM_HOME=$RUNNER_TEMP/pnpm" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/pnpm/bin" >> "$GITHUB_PATH"
+      - run: pnpm add -g typescript prettier @biomejs/biome eslint vitest
       # Rust (cargo, rustfmt) is preinstalled on GitHub runners; make sure rustfmt is there.
       - run: rustup component add rustfmt
       # Language servers for the LSP tests (pyright-langserver comes with pyright, tsc --lsp with TypeScript 7).
@@ -58,12 +65,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
       # The marketplace (repository root) and the plugin manifest.
-      - run: npx -y @anthropic-ai/claude-code@2.1.294 plugin validate .
-      - run: npx -y @anthropic-ai/claude-code@2.1.294 plugin validate ./plugin
+      - run: pnpm dlx @anthropic-ai/claude-code@2.1.294 plugin validate .
+      - run: pnpm dlx @anthropic-ai/claude-code@2.1.294 plugin validate ./plugin
 
   build:
     uses: ./.github/workflows/build.yml

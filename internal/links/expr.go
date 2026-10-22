@@ -48,9 +48,10 @@ func callTail(src string, at int) string {
 	for i := at; i < len(src) && i < at+2000; i++ {
 		c := src[i]
 		if quote != 0 {
-			if c == '\\' {
+			switch c {
+			case '\\':
 				i++
-			} else if c == quote {
+			case quote:
 				quote = 0
 			}
 			continue
@@ -72,7 +73,6 @@ func callTail(src string, at int) string {
 
 var (
 	stringLit = regexp.MustCompile("(?s)[rfbu]{0,2}\"(?:[^\"\\\\]|\\\\.)*\"|[rfbu]{0,2}'(?:[^'\\\\]|\\\\.)*'|`[^`]*`")
-	ident     = regexp.MustCompile(`[A-Za-z_][\w.\[\]"']*`)
 )
 
 // urlExpr turns a URL expression into a path template: string literal pieces are kept,

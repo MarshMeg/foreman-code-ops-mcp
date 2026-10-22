@@ -118,7 +118,8 @@ requests. If it exits, pending requests fail with the end of its stderr and the 
 starts a new one. Node is only needed when this provider is used.
 
 ```bash
-npm install -g ./sidecar/agent-sdk     # installs the foreman-agent-sdk command
+# the sidecar package is attached to every release
+pnpm add -g https://github.com/MarshMeg/foreman-code-ops-mcp/releases/download/v0.1.0/foreman-agent-sdk-0.1.0.tgz
 export ANTHROPIC_API_KEY=...           # or CLAUDE_CODE_USE_BEDROCK / _VERTEX / _FOUNDRY with their credentials
 ```
 

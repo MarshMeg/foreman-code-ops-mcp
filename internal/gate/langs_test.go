@@ -236,7 +236,8 @@ func TestRustGate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rep.OK || rep.Diagnostics[0].File != "src/lib.rs" || !strings.Contains(rep.Diagnostics[0].Message, "missing_field") {
+	// cargo also reports warnings (an unused macro in the fixture); the error must be among them.
+	if rep.OK || !hasError(rep, "src/lib.rs", "missing_field") {
 		t.Fatalf("report = %+v", rep)
 	}
 	if strings.Contains(tu.ReadFile(t, root, "src/lib.rs"), "missing_field") {
@@ -253,7 +254,16 @@ func TestCSharpGate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rep.OK || rep.Diagnostics[0].File != "Catalog.cs" || !strings.Contains(rep.Diagnostics[0].Message, "CS0103") {
+	if rep.OK || !hasError(rep, "Catalog.cs", "CS0103") {
 		t.Fatalf("report = %+v", rep)
 	}
+}
+
+func hasError(rep Report, file, text string) bool {
+	for _, d := range rep.Diagnostics {
+		if d.Severity == SeverityError && d.File == file && strings.Contains(d.Message, text) {
+			return true
+		}
+	}
+	return false
 }

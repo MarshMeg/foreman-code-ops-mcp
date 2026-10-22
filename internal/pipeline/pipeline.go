@@ -234,11 +234,12 @@ func buildPrompt(ctx context.Context, env Env, t Task, base []byte, current lang
 	if strings.TrimSpace(t.Interface) != "" {
 		fmt.Fprintf(&task, "Interface (must match exactly):\n```\n%s\n```\n\n", strings.TrimSpace(t.Interface))
 	}
-	if found {
+	switch {
+	case found:
 		fmt.Fprintf(&task, "Current code, which your answer replaces entirely:\n```\n%s\n```\n", base[current.Start:current.End])
-	} else if t.Anchor != "" {
+	case t.Anchor != "":
 		fmt.Fprintf(&task, "This is a new symbol; it will be inserted after `%s`.\n", t.Anchor)
-	} else {
+	default:
 		task.WriteString("This is a new symbol; it will be appended to the file.\n")
 	}
 	parts = append(parts,

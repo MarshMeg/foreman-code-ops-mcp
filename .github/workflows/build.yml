@@ -77,6 +77,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -86,9 +89,9 @@ jobs:
         run: |
           set -eu
           cd sidecar/agent-sdk
-          npm version --no-git-tag-version --allow-same-version "$VERSION"
+          jq --arg v "$VERSION" '.version = $v' package.json > package.tmp && mv package.tmp package.json
           mkdir -p ../../dist
-          npm pack --pack-destination ../../dist
+          pnpm pack --pack-destination ../../dist
       - uses: actions/upload-artifact@v4
         with:
           name: foreman-agent-sdk

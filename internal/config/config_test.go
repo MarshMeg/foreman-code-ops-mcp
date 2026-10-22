@@ -89,9 +89,9 @@ limits:
 
 func TestLoadRejectsUnknownFields(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, ProjectConfigPath(dir), "generator:\n  modle: typo\n")
+	writeFile(t, ProjectConfigPath(dir), "generator:\n  bogus_key: typo\n")
 	_, err := Load(Options{ProjectDir: dir})
-	if err == nil || !strings.Contains(err.Error(), "modle") {
+	if err == nil || !strings.Contains(err.Error(), "bogus_key") {
 		t.Fatalf("expected unknown-field error, got %v", err)
 	}
 }

@@ -69,6 +69,37 @@ Claude calls `upsert_symbol` instead of `Edit`/`Write`; each successful call is 
 With the plugin, the tools are named `mcp__plugin_foreman-code-ops_foreman__<tool>`; with a
 project `.mcp.json` entry, `mcp__foreman__<tool>`.
 
+### Or let Claude set it up
+
+Paste this into Claude Code in your project. Claude does the steps above and asks you only for
+what it cannot find out itself:
+
+```text
+Install and configure the foreman-code-ops MCP server (https://github.com/MarshMeg/foreman-code-ops-mcp)
+for this project. Read its README and docs/config.md first.
+
+1. Install the binary: run
+   curl -fsSL https://raw.githubusercontent.com/MarshMeg/foreman-code-ops-mcp/main/scripts/install.sh | sh
+   (or `go install github.com/MarshMeg/foreman-code-ops-mcp/cmd/foreman-code-ops@latest` if that fails),
+   then check `foreman-code-ops version` and that its directory is on PATH.
+2. Install the plugin: `claude plugin marketplace add MarshMeg/foreman-code-ops-mcp`, then
+   `claude plugin install foreman-code-ops@foreman-code-ops`.
+3. Run `foreman-code-ops init --project .`, then compare .foreman/workspace.yaml with the real
+   services of the repository (roots, languages, which service calls which) and fix it.
+4. Ask me which generator to use (a local llama-server: base URL, model, number of slots and
+   context per slot; or OpenRouter / Anthropic) and which validator (OpenRouter with
+   z-ai/glm-5.3-flash by default, Anthropic, or none). Write the answers to .foreman/config.yaml.
+   Never put API keys in files: tell me which environment variable to set.
+5. If the generator is a llama-server, check that it answers (GET <base_url>/models) and that
+   its -np and -c match slots and slot_ctx.
+6. Check that the gate's tools for the project's languages are installed (linters, type
+   checkers, test runners from the README's language table) and list what is missing.
+7. Show `foreman-code-ops config --project .` and tell me to restart Claude Code so the plugin
+   loads. After the restart, call the `status` tool and fix the warnings it reports.
+8. Study the code and write a short style guide with `style_set` (in English, one section per language).
+9. Commit .foreman/ and .claude/settings.json in a separate commit.
+```
+
 ## Languages
 
 | Language | Files | Fix | Check | Tests |

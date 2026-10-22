@@ -65,11 +65,11 @@ func (c *codebaseMemory) projectName(ctx context.Context) (string, error) {
 	}
 	out, err := run(ctx, c.root, nil, c.bin, "cli", "list_projects", "--format", "json", "--quiet")
 	if err != nil {
-		return "", fmt.Errorf("%w: list_projects: %v", ErrUnavailable, err)
+		return "", fmt.Errorf("%w: list_projects: %w", ErrUnavailable, err)
 	}
 	var v any
 	if err := json.Unmarshal(out, &v); err != nil {
-		return "", fmt.Errorf("%w: list_projects output: %v", ErrUnavailable, err)
+		return "", fmt.Errorf("%w: list_projects output: %w", ErrUnavailable, err)
 	}
 	if name := findProject(v, c.root); name != "" {
 		c.project = name
@@ -136,7 +136,7 @@ func (c *codebaseMemory) References(ctx context.Context, file, symbol string) ([
 		"project": project, "function_name": lastName(symbol), "direction": "inbound", "depth": 1,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("%w: trace_path: %v", ErrUnavailable, err)
+		return nil, fmt.Errorf("%w: trace_path: %w", ErrUnavailable, err)
 	}
 	refs, err := refsFromJSON(out, c.root)
 	if err != nil {

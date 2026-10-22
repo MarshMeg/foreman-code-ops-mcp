@@ -11,6 +11,24 @@ linters:
       exclude-functions:
         - (io.Closer).Close
         - (*os.File).Close
+        # Best-effort cleanup of temporary files and directories.
+        - os.Remove
+        - os.RemoveAll
+        # Reports written to a terminal or buffer.
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        # Shutting down child processes: there is nothing left to do on failure.
+        - (*github.com/MarshMeg/foreman-code-ops-mcp/internal/lsp.Client).Close
+        - (*github.com/MarshMeg/foreman-code-ops-mcp/internal/providers.AgentSDK).Close
+  exclusions:
+    rules:
+      # Test setup calls fail the test through later assertions.
+      - path: (_test\.go|internal/testutil/)
+        linters: [errcheck]
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
 formatters:
   enable:
     - gofmt

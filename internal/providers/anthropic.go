@@ -57,7 +57,7 @@ func (a *Anthropic) Complete(ctx context.Context, req Request) (Response, error)
 		maxTokens = 16000
 	}
 	params := anthropic.BetaMessageNewParams{
-		Model:     anthropic.Model(a.model),
+		Model:     a.model,
 		MaxTokens: maxTokens,
 	}
 	if req.System != "" {
