@@ -73,6 +73,20 @@ func (g *graphify) Build(ctx context.Context) error {
 	return err
 }
 
+// ask runs a read-only graphify command on a fresh graph. Exit codes 3 (ambiguous name) and 4 (no
+// match) still carry an answer.
+func (g *graphify) ask(ctx context.Context, args ...string) (string, error) {
+	if err := g.fresh(ctx); err != nil {
+		return "", err
+	}
+	args = append(args, "--graph", g.path())
+	out, code, err := g.cli(ctx, args...)
+	if err == nil || code == 3 || code == 4 {
+		return out, nil
+	}
+	return "", err
+}
+
 // fresh waits for a running reindex and rebuilds the graph when it is missing or older than the
 // last commit, so commits made outside foreman are seen too.
 func (g *graphify) fresh(ctx context.Context) error {
