@@ -187,7 +187,7 @@ func (c *OpenAI) complete(ctx context.Context, req Request, mode string) (Respon
 	}
 	ch := out.Choices[0]
 	if ch.FinishReason == "length" {
-		return Response{}, fmt.Errorf("%s: answer truncated at max_tokens (%d)", c.Name(), req.MaxTokens)
+		return Response{}, fmt.Errorf("%s: answer truncated at max_tokens (%d): %w", c.Name(), req.MaxTokens, ErrInvalidAnswer)
 	}
 	u := out.Usage
 	return Response{Text: ch.Message.Content, Usage: Usage{
