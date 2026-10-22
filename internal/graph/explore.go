@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -90,6 +91,29 @@ func (g *graphify) Build(ctx context.Context) error {
 	// "update" builds graph.json and GRAPH_REPORT.md from scratch when they are missing.
 	_, _, err := g.cli(ctx, "update", ".")
 	return err
+}
+
+// excludeOutput adds graphify-out/ to .git/info/exclude (local, never committed) when git does not
+// ignore it yet, so the graph never shows up as untracked files.
+func (g *graphify) excludeOutput(ctx context.Context) {
+	if _, err := run(ctx, g.root, nil, "git", "check-ignore", "-q", "graphify-out/"); err == nil {
+		return
+	}
+	out, err := run(ctx, g.root, nil, "git", "rev-parse", "--git-path", "info/exclude")
+	if err != nil {
+		return
+	}
+	p := strings.TrimSpace(string(out))
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(g.root, p)
+	}
+	_ = os.MkdirAll(filepath.Dir(p), 0o755)
+	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	_, _ = f.WriteString("\n# foreman-code-ops: graphify output\ngraphify-out/\n")
+	_ = f.Close()
 }
 
 // ask runs a read-only graphify command on a fresh graph. Exit codes 3 (ambiguous name) and 4 (no
