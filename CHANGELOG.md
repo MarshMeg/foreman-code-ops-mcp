@@ -3,6 +3,27 @@
 All notable changes are listed here. Versions follow [semantic versioning](https://semver.org);
 the release workflow takes the notes for a tag from its section.
 
+## [Unreleased]
+
+Installation is now global once and per project after that.
+
+- The plugin no longer starts the MCP server in every project. `foreman-code-ops init` registers
+  it in the project's `.mcp.json` and approves it in `.claude/settings.json`
+  (`enabledMcpjsonServers`); `--mcp=false` skips that.
+- Skills: `/foreman-code-ops:setup` installs the binary and graphify and writes the models to the
+  global config; `/foreman-code-ops:connect` connects a project and continues in a new session.
+- graphify is the default code graph. New tools `graph_overview`, `graph_query`, `graph_node`,
+  `graph_path`, `graph_affected` give Claude the codebase structure through foreman; the graph
+  is built by `init`, refreshed after foreman's commits and rebuilt when older than the last
+  commit. graphify always runs without LLM backends.
+- `init` writes a foreman section into `CLAUDE.md` (read code through the graph, write it through
+  foreman; `--no-claude-md` skips it), ignores `graphify-out/` and builds the graph (`--no-graph`).
+- `delete_symbol` also runs a name search when the graph finds no references: graphs miss some
+  uses (e.g. calls through struct fields).
+- Fixed: graphify reindex failed on every commit (`graphify update` has no `--no-viz`).
+- Fixed: an answer truncated at `max_tokens` failed the call instead of falling back to the
+  validator.
+
 ## [0.1.1]
 
 - Plugin skill `/foreman-code-ops:setup`: installs the binary and configures a project (init,

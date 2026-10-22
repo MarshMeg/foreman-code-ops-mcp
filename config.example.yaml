@@ -43,8 +43,8 @@ git:
   branch: ""                    # commit to this branch instead of the current one
 
 graph:
-  provider: codebase-memory     # codebase-memory | graphify | command | noop
-  command: ""                   # executable; default codebase-memory-mcp / graphify
+  provider: graphify            # graphify | codebase-memory | command | noop
+  command: ""                   # executable; default graphify / codebase-memory-mcp
   project: ""                   # codebase-memory project; default: found by the project path
   auto_index: false             # true if the graph refreshes itself (watcher, graphify hook)
   # For provider "command": argv templates with {root} {files} {file} {symbol} {name} {project}.

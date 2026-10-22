@@ -63,7 +63,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: pip install ruff pyright mypy pytest
+      - run: pip install ruff pyright mypy pytest graphifyy
       # Global pnpm installs need a bin directory on PATH.
       - run: |
           echo "PNPM_HOME=$RUNNER_TEMP/pnpm" >> "$GITHUB_ENV"

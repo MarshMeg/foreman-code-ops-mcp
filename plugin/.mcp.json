@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "foreman": {
-      "command": "foreman-code-ops",
-      "args": ["--project", "${CLAUDE_PROJECT_DIR}"]
-    }
-  }
-}

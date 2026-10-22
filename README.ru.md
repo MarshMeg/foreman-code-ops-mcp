@@ -27,78 +27,99 @@ Claude вызывает `upsert_symbol` вместо `Edit`/`Write`. Кажды�
 | Платформы | Linux; macOS — без гарантий; Windows — не в v1 |
 | Генератор | любой OpenAI-совместимый эндпоинт (llama-server, vLLM, LM Studio), OpenRouter, Anthropic, Claude Agent SDK |
 | Валидатор | OpenRouter (по умолчанию `z-ai/glm-5.3-flash`), OpenAI-совместимый, Anthropic, Claude Agent SDK или `none` |
-| Граф кода | codebase-memory-mcp, graphify или без графа |
+| Граф кода | graphify (по умолчанию; через инструменты `graph_*` отвечает и на вопросы Claude), codebase-memory-mcp или без графа |
 
 ## Установка
 
-1. Установите сервер. Бинарники для релизов (Linux amd64/arm64; macOS — без гарантий) собирает
-   GitHub Actions:
+foreman ставится один раз на машину и включается в каждом проекте отдельно. Плагин, бинарник,
+graphify и настройки моделей — глобальные; MCP-сервер прописывается в `.mcp.json` проекта и
+работает только в подключённых проектах.
 
-   ```bash
-   curl -fsSL https://raw.githubusercontent.com/MarshMeg/foreman-code-ops-mcp/main/scripts/install.sh | sh
-   ```
+### Один раз на машину
 
-   Скрипт выбирает архив под вашу платформу, сверяет его с `checksums.txt` и ставит в
-   `~/.local/bin` (поменять можно через `FOREMAN_BIN_DIR` и `FOREMAN_VERSION`). Или соберите из
-   исходников (нужен C-компилятор для грамматик tree-sitter):
-
-   ```bash
-   go install github.com/MarshMeg/foreman-code-ops-mcp/cmd/foreman-code-ops@latest
-   ```
-
-2. Установите плагин для Claude Code (регистрация MCP-сервера, skill с правилами работы и скил настройки):
+1. Установите плагин для Claude Code (скилы `setup`, `connect` и правила работы):
 
    ```
    /plugin marketplace add MarshMeg/foreman-code-ops-mcp
    /plugin install foreman-code-ops@foreman-code-ops
    ```
 
-3. Подготовьте проект:
+2. Выполните в Claude Code `/foreman-code-ops:setup`. Скил поставит бинарник и graphify, спросит,
+   какие генератор и валидатор использовать, и запишет их в `~/.config/foreman-code-ops/config.yaml`.
+   Вручную:
 
    ```bash
-   foreman-code-ops init --project .
+   curl -fsSL https://raw.githubusercontent.com/MarshMeg/foreman-code-ops-mcp/main/scripts/install.sh | sh
    ```
 
-   Команда создаёт черновик `.foreman/workspace.yaml`, добавляет в `.claude/settings.json`
-   правила `permissions.deny` вида `Edit(**/*.go)`, чтобы правки исходников шли через foreman,
-   и добавляет `.foreman/cache/` в `.gitignore`. Без плагина добавьте `--mcp`, чтобы прописать
-   сервер в `.mcp.json`.
+   ```bash
+   uv tool install graphifyy
+   ```
 
-4. По желанию подключите граф кода ([docs/graph.md](docs/graph.md)), например codebase-memory-mcp.
+   Скрипт установки выбирает архив релиза под вашу платформу (Linux amd64/arm64; macOS — без
+   гарантий), сверяет его с `checksums.txt` и ставит в `~/.local/bin` (поменять можно через
+   `FOREMAN_BIN_DIR` и `FOREMAN_VERSION`). Собрать из исходников (нужен C-компилятор для
+   грамматик tree-sitter):
+   `go install github.com/MarshMeg/foreman-code-ops-mcp/cmd/foreman-code-ops@latest`.
+   Настройки моделей: [docs/config.md](docs/config.md).
 
-С плагином инструменты называются `mcp__plugin_foreman-code-ops_foreman__<tool>`, при записи в
-`.mcp.json` проекта — `mcp__foreman__<tool>`.
+### В каждом проекте
 
-### Или пусть Claude поставит всё сам
+Выполните в Claude Code в проекте `/foreman-code-ops:connect`. Скил запустит
+`foreman-code-ops init`, проверит результат, закоммитит его и продолжит работу в новой сессии,
+где уже загружены инструменты foreman. Вручную:
 
-Если плагин уже установлен, выполните в проекте `/foreman-code-ops:setup`: скил настройки поставит
-бинарник и настроит проект, спрашивая только то, что не сможет выяснить сам. Без плагина вставьте
-в Claude Code этот промт:
+```bash
+foreman-code-ops init --project .
+```
+
+`init` записывает:
+
+- `.foreman/workspace.yaml` — черновик списка сервисов (по `go.mod`, `package.json`,
+  `tsconfig.json`, `pyproject.toml`, `Cargo.toml`, `*.csproj`); проверьте его;
+- `.mcp.json` — сервер `foreman`, а в `.claude/settings.json` — `enabledMcpjsonServers`, чтобы он
+  запускался без вопроса (`--mcp=false` пропускает этот шаг);
+- `.claude/settings.json` — правила `permissions.deny` вида `Edit(**/*.go)`, чтобы правки
+  исходников шли через foreman (`--no-permissions` их не добавляет);
+- `CLAUDE.md` — раздел о том, что код Claude читает через граф foreman, а пишет через
+  инструменты foreman (`--no-claude-md` его не пишет);
+- `.gitignore` — `.foreman/cache/` и `graphify-out/`;
+- `graphify-out/` — граф кода ([docs/graph.md](docs/graph.md)); с `--no-graph` foreman построит
+  его при первом запросе к графу.
+
+Затем откройте в проекте новую сессию Claude Code. Инструменты называются `mcp__foreman__<tool>`.
+
+### Или пусть Claude всё сделает без плагина
+
+Вставьте этот промт в Claude Code в своём проекте:
 
 ```text
-Установи и настрой MCP-сервер foreman-code-ops (https://github.com/MarshMeg/foreman-code-ops-mcp)
-для этого проекта. Сначала прочитай его README и docs/config.md.
+Установи и подключи MCP-сервер foreman-code-ops (https://github.com/MarshMeg/foreman-code-ops-mcp)
+к этому проекту. Сначала прочитай его README и docs/config.md.
 
 1. Установи бинарник: выполни
    curl -fsSL https://raw.githubusercontent.com/MarshMeg/foreman-code-ops-mcp/main/scripts/install.sh | sh
    (если не получится — `go install github.com/MarshMeg/foreman-code-ops-mcp/cmd/foreman-code-ops@latest`),
    затем проверь `foreman-code-ops version` и что его каталог есть в PATH.
-2. Установи плагин: `claude plugin marketplace add MarshMeg/foreman-code-ops-mcp`, затем
+2. Установи graphify (граф кода): `uv tool install graphifyy` (или `pipx install graphifyy`).
+   Не запускай `graphify install` и `graphify claude install`.
+3. Установи плагин: `claude plugin marketplace add MarshMeg/foreman-code-ops-mcp`, затем
    `claude plugin install foreman-code-ops@foreman-code-ops`.
-3. Выполни `foreman-code-ops init --project .` и сверь .foreman/workspace.yaml с реальными
-   сервисами репозитория (корни, языки, кто кого вызывает); исправь, если нужно.
 4. Спроси меня, какой генератор использовать (локальный llama-server: base URL, модель, число
    слотов и контекст на слот; или OpenRouter / Anthropic) и какой валидатор (по умолчанию
-   OpenRouter с z-ai/glm-5.3-flash, Anthropic или none). Запиши ответы в .foreman/config.yaml.
-   Никогда не записывай API-ключи в файлы: скажи, какую переменную окружения мне задать.
+   OpenRouter с z-ai/glm-5.3-flash, Anthropic, Agent SDK или none). Запиши ответы в глобальный
+   конфиг ~/.config/foreman-code-ops/config.yaml. Никогда не записывай API-ключи в файлы: скажи,
+   какую переменную окружения мне задать.
 5. Если генератор — llama-server, проверь, что он отвечает (GET <base_url>/models) и что его
    -np и -c совпадают со slots и slot_ctx.
-6. Проверь, что инструменты гейта для языков проекта установлены (линтеры, проверка типов, тесты
+6. Выполни `foreman-code-ops init --project .` и сверь .foreman/workspace.yaml с реальными
+   сервисами репозитория (корни, языки, кто кого вызывает); исправь, если нужно.
+7. Проверь, что инструменты гейта для языков проекта установлены (линтеры, проверка типов, тесты
    из таблицы языков в README), и перечисли, чего не хватает.
-7. Покажи `foreman-code-ops config --project .` и скажи мне перезапустить Claude Code, чтобы
-   загрузился плагин. После перезапуска вызови инструмент `status` и устрани его предупреждения.
-8. Изучи код и напиши короткий гайд по стилю через `style_set` (на английском, по секции на язык).
-9. Закоммить .foreman/ и .claude/settings.json отдельным коммитом.
+8. Закоммить .foreman/, .claude/settings.json, .mcp.json, CLAUDE.md и .gitignore отдельным
+   коммитом и скажи мне открыть в проекте новую сессию Claude Code. В ней: вызови `status` и
+   устрани предупреждения, вызови `graph_overview` и напиши короткий гайд по стилю через
+   `style_set` (на английском, по секции на язык).
 ```
 
 ## Языки
@@ -159,6 +180,9 @@ llama-server -m model.gguf -c 196608 -np 3 --port 8080
 | `run_tests` | тесты по запросу |
 | `style_get` / `style_set` | чтение и изменение `.foreman/style.md` |
 | `discover_links` / `get_links` | карта HTTP/gRPC-вызовов между сервисами ([docs/links.md](docs/links.md)) |
+| `graph_overview` | структура проекта по графу кода: ключевые абстракции, сообщества |
+| `graph_query` | символы, относящиеся к вопросу, с местоположением и связями |
+| `graph_node` / `graph_path` / `graph_affected` | символ и его связи; путь между двумя; что от символа зависит |
 | `status` | провайдеры, слоты, очередь, граф, предупреждения |
 
 Поля, которые Claude передаёт серверу (`spec`, `interface`, `commit_message`, `style.md`), пишутся

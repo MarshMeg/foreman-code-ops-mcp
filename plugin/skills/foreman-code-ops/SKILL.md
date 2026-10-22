@@ -1,6 +1,6 @@
 ---
 name: foreman-code-ops
-description: How to change source code in projects that use foreman-code-ops — write and delete functions, methods, types, classes and components through the foreman MCP tools (upsert_symbol, delete_symbol, create_file, check, run_tests, style_set) instead of editing files directly. Use whenever you would edit Go, Python, TypeScript or JavaScript source in a project with a .foreman directory or the foreman MCP server.
+description: How to read and change source code in projects connected to foreman-code-ops — explore the codebase through foreman's code graph (graph_overview, graph_query, graph_node, graph_path, graph_affected) and write and delete functions, methods, types, classes and components through the foreman MCP tools (upsert_symbol, delete_symbol, create_file, check, run_tests, style_set) instead of editing files directly. Use whenever you would read, search or edit Go, Python, TypeScript, JavaScript, Rust or C# source in a project with a .foreman directory or the foreman MCP server (tools mcp__foreman__*). If the project is not connected yet, use the connect skill.
 ---
 
 # Changing code with foreman-code-ops
@@ -19,8 +19,30 @@ Write everything you send to foreman in **English**: `spec`, `interface`, `commi
 1. Call `status` once per session. Note warnings: a missing generator, an unavailable
    validator (then nothing is reviewed), a missing code graph, tools missing from PATH.
 2. Call `style_get`. If there is no style guide, offer the user to create one (see below).
-3. Understand the code first: use the code graph's own MCP tools if available
-   (codebase-memory-mcp), otherwise `get_symbol` and normal reading.
+3. Understand the code first, through the graph (next section).
+
+## Reading the code: the graph
+
+foreman keeps a code graph of the project (graphify): symbols, files and their edges (calls,
+references, imports, inheritance), grouped into communities. It is refreshed after every
+foreman commit and rebuilt when it is older than the last commit. Prefer it over reading or
+grepping whole files:
+
+- `graph_overview` — the project's structure: core abstractions (most connected nodes),
+  communities, surprising connections, import cycles. Call it once when you start on a project.
+- `graph_query {question}` — the symbols relevant to a question, with `file:Lline` and edges.
+  Narrow with `seeds` (start nodes) or `context` (e.g. `call`); raise `budget` when the answer
+  says it was truncated.
+- `graph_node {name}` — one symbol or file and its connections in both directions. When a name
+  is ambiguous, the answer lists candidates; retry with `path::symbol` or the node id.
+- `graph_path {from, to}` — how one symbol reaches another.
+- `graph_affected {name}` — what depends on a symbol: check it before changing a signature or
+  deleting it.
+- `get_symbol {file, symbol}` — the exact current source of one symbol, once you know where it is.
+
+The graph is built from syntax, so it can miss some uses (for example calls through struct
+fields or interfaces); read the code when the answer matters. Uncommitted changes are not in
+the graph until the next commit.
 
 ## Writing a symbol: `upsert_symbol`
 
@@ -71,8 +93,9 @@ refuses to remove a handler that another service calls.
 ## Other tools
 
 - `get_symbol {file, symbol}` — source, signature and lines of one symbol.
-- `delete_symbol {file, symbol, force?}` — refuses while references exist (code graph, or a
-  name search that may over-report) or when the build breaks. Update callers first; use
+- `delete_symbol {file, symbol, force?}` — refuses while references exist (code graph; a name
+  search, which may over-report, when the graph is unavailable or finds none) or when the build
+  breaks. Update callers first; use
   `force` only when you are sure.
 - `create_file` / `delete_file` — explicit file operations, also committed.
 - `check {paths?}` — build and lint without changing anything.

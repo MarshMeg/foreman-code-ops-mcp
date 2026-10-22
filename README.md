@@ -27,78 +27,99 @@ Claude calls `upsert_symbol` instead of `Edit`/`Write`; each successful call is 
 | Platforms | Linux; macOS best effort; Windows not in v1 |
 | Generator | any OpenAI-compatible endpoint (llama-server, vLLM, LM Studio), OpenRouter, Anthropic, Claude Agent SDK |
 | Validator | OpenRouter (default `z-ai/glm-5.3-flash`), OpenAI-compatible, Anthropic, Claude Agent SDK, or `none` |
-| Code graph | codebase-memory-mcp, graphify, or none |
+| Code graph | graphify (default; also answers Claude's questions through `graph_*` tools), codebase-memory-mcp, or none |
 
 ## Install
 
-1. Install the server. Release binaries (Linux amd64/arm64; macOS best effort) are built by
-   GitHub Actions:
+foreman is installed once per machine and turned on per project. The plugin, the binary,
+graphify and the model settings are global; the MCP server is registered in a project's
+`.mcp.json`, so it runs only in projects you connect.
 
-   ```bash
-   curl -fsSL https://raw.githubusercontent.com/MarshMeg/foreman-code-ops-mcp/main/scripts/install.sh | sh
-   ```
+### Once per machine
 
-   The script picks the archive for your platform, checks it against `checksums.txt` and
-   installs to `~/.local/bin` (`FOREMAN_BIN_DIR`, `FOREMAN_VERSION` change that). Or build from
-   source (a C compiler is needed for the tree-sitter grammars):
-
-   ```bash
-   go install github.com/MarshMeg/foreman-code-ops-mcp/cmd/foreman-code-ops@latest
-   ```
-
-2. Install the Claude Code plugin (MCP server registration, the usage skill and the setup skill):
+1. Install the Claude Code plugin (skills: `setup`, `connect` and the usage rules):
 
    ```
    /plugin marketplace add MarshMeg/foreman-code-ops-mcp
    /plugin install foreman-code-ops@foreman-code-ops
    ```
 
-3. Prepare the project:
+2. Run `/foreman-code-ops:setup` in Claude Code. It installs the binary and graphify, asks which
+   generator and validator to use and writes them to `~/.config/foreman-code-ops/config.yaml`.
+   Or by hand:
 
    ```bash
-   foreman-code-ops init --project .
+   curl -fsSL https://raw.githubusercontent.com/MarshMeg/foreman-code-ops-mcp/main/scripts/install.sh | sh
    ```
 
-   This writes a draft `.foreman/workspace.yaml` (services found by `go.mod`, `package.json`,
-   `tsconfig.json`, `pyproject.toml`, `Cargo.toml`, `*.csproj`), adds `permissions.deny` rules such as `Edit(**/*.go)` to
-   `.claude/settings.json` so source edits go through foreman, and adds `.foreman/cache/` to
-   `.gitignore`. Without the plugin, pass `--mcp` to register the server in `.mcp.json`.
+   ```bash
+   uv tool install graphifyy
+   ```
 
-4. Optionally install a code graph ([docs/graph.md](docs/graph.md)), e.g. codebase-memory-mcp.
+   The install script picks the release archive for your platform (Linux amd64/arm64; macOS best
+   effort), checks it against `checksums.txt` and installs to `~/.local/bin`
+   (`FOREMAN_BIN_DIR`, `FOREMAN_VERSION` change that). To build from source instead (a C compiler
+   is needed for the tree-sitter grammars):
+   `go install github.com/MarshMeg/foreman-code-ops-mcp/cmd/foreman-code-ops@latest`.
+   Model settings: [docs/config.md](docs/config.md).
 
-With the plugin, the tools are named `mcp__plugin_foreman-code-ops_foreman__<tool>`; with a
-project `.mcp.json` entry, `mcp__foreman__<tool>`.
+### In each project
 
-### Or let Claude set it up
+Run `/foreman-code-ops:connect` in Claude Code in the project. It runs `foreman-code-ops init`,
+reviews the result, commits it and continues in a new session, where the foreman tools are
+loaded. By hand:
 
-With the plugin installed, run `/foreman-code-ops:setup` in your project: the setup skill installs the
-binary and configures the project, asking you only for what it cannot find out itself. Without
-the plugin, paste this prompt into Claude Code instead:
+```bash
+foreman-code-ops init --project .
+```
+
+`init` writes:
+
+- `.foreman/workspace.yaml` — a draft of the services (found by `go.mod`, `package.json`,
+  `tsconfig.json`, `pyproject.toml`, `Cargo.toml`, `*.csproj`); review it;
+- `.mcp.json` — the `foreman` server, and `enabledMcpjsonServers` in `.claude/settings.json` so
+  it starts without a prompt (`--mcp=false` skips this);
+- `.claude/settings.json` — `permissions.deny` rules such as `Edit(**/*.go)`, so source edits go
+  through foreman (`--no-permissions` skips them);
+- `CLAUDE.md` — a section telling Claude to read the code through foreman's graph tools and to
+  write it through foreman's tools (`--no-claude-md` skips it);
+- `.gitignore` — `.foreman/cache/` and `graphify-out/`;
+- `graphify-out/` — the code graph ([docs/graph.md](docs/graph.md)); `--no-graph` skips it,
+  foreman then builds it on the first graph query.
+
+Then start a new Claude Code session in the project. The tools are named `mcp__foreman__<tool>`.
+
+### Or let Claude do it without the plugin
+
+Paste this prompt into Claude Code in your project:
 
 ```text
-Install and configure the foreman-code-ops MCP server (https://github.com/MarshMeg/foreman-code-ops-mcp)
-for this project. Read its README and docs/config.md first.
+Install and connect the foreman-code-ops MCP server (https://github.com/MarshMeg/foreman-code-ops-mcp)
+to this project. Read its README and docs/config.md first.
 
 1. Install the binary: run
    curl -fsSL https://raw.githubusercontent.com/MarshMeg/foreman-code-ops-mcp/main/scripts/install.sh | sh
    (or `go install github.com/MarshMeg/foreman-code-ops-mcp/cmd/foreman-code-ops@latest` if that fails),
    then check `foreman-code-ops version` and that its directory is on PATH.
-2. Install the plugin: `claude plugin marketplace add MarshMeg/foreman-code-ops-mcp`, then
+2. Install graphify, the code graph: `uv tool install graphifyy` (or `pipx install graphifyy`).
+   Do not run `graphify install` or `graphify claude install`.
+3. Install the plugin: `claude plugin marketplace add MarshMeg/foreman-code-ops-mcp`, then
    `claude plugin install foreman-code-ops@foreman-code-ops`.
-3. Run `foreman-code-ops init --project .`, then compare .foreman/workspace.yaml with the real
-   services of the repository (roots, languages, which service calls which) and fix it.
 4. Ask me which generator to use (a local llama-server: base URL, model, number of slots and
    context per slot; or OpenRouter / Anthropic) and which validator (OpenRouter with
-   z-ai/glm-5.3-flash by default, Anthropic, or none). Write the answers to .foreman/config.yaml.
-   Never put API keys in files: tell me which environment variable to set.
+   z-ai/glm-5.3-flash by default, Anthropic, Agent SDK, or none). Write the answers to the global
+   config ~/.config/foreman-code-ops/config.yaml. Never put API keys in files: tell me which
+   environment variable to set.
 5. If the generator is a llama-server, check that it answers (GET <base_url>/models) and that
    its -np and -c match slots and slot_ctx.
-6. Check that the gate's tools for the project's languages are installed (linters, type
+6. Run `foreman-code-ops init --project .`, then compare .foreman/workspace.yaml with the real
+   services of the repository (roots, languages, which service calls which) and fix it.
+7. Check that the gate's tools for the project's languages are installed (linters, type
    checkers, test runners from the README's language table) and list what is missing.
-7. Show `foreman-code-ops config --project .` and tell me to restart Claude Code so the plugin
-   loads. After the restart, call the `status` tool and fix the warnings it reports.
-8. Study the code and write a short style guide with `style_set` (in English, one section per language).
-9. Commit .foreman/ and .claude/settings.json in a separate commit.
+8. Commit .foreman/, .claude/settings.json, .mcp.json, CLAUDE.md and .gitignore in a separate
+   commit, then tell me to start a new Claude Code session in this project. In that session:
+   call `status` and fix its warnings, call `graph_overview`, and write a short style guide with
+   `style_set` (in English, one section per language).
 ```
 
 ## Languages
@@ -162,6 +183,9 @@ llama-server -m model.gguf -c 196608 -np 3 --port 8080
 | `run_tests` | run tests on request |
 | `style_get` / `style_set` | read / update `.foreman/style.md` (whole file or one section) |
 | `discover_links` / `get_links` | map HTTP/gRPC calls between services ([docs/links.md](docs/links.md)) |
+| `graph_overview` | project structure from the code graph: core abstractions, communities |
+| `graph_query` | the symbols relevant to a question, with locations and edges |
+| `graph_node` / `graph_path` / `graph_affected` | one symbol and its connections; path between two; what depends on one |
 | `status` | providers, slots, queue, graph, warnings |
 
 ## License
