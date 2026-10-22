@@ -49,7 +49,7 @@ func (r *Report) add(format string, args ...any) {
 	r.Lines = append(r.Lines, fmt.Sprintf(format, args...))
 }
 
-// Init prepares the project.
+// Init prepares the project: services draft, deny rules, the project MCP server, the CLAUDE.md section and .gitignore lines.
 func Init(o Options) (Report, error) {
 	var rep Report
 	if err := workspace(o, &rep); err != nil {
@@ -62,6 +62,14 @@ func Init(o Options) (Report, error) {
 	}
 	if o.MCP {
 		if err := mcpEntry(o, &rep); err != nil {
+			return rep, err
+		}
+		if err := enableMCP(o, &rep); err != nil {
+			return rep, err
+		}
+	}
+	if o.ClaudeMD {
+		if err := claudeMD(o, &rep); err != nil {
 			return rep, err
 		}
 	}
