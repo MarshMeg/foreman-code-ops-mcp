@@ -106,6 +106,18 @@ func (g *graphify) ask(ctx context.Context, args ...string) (string, error) {
 	return "", err
 }
 
+// Affected returns the nodes that depend on a node, transitively up to depth.
+func (g *graphify) Affected(ctx context.Context, name string, depth int, relations []string) (string, error) {
+	args := []string{"affected", name}
+	if depth > 0 {
+		args = append(args, "--depth", strconv.Itoa(depth))
+	}
+	for _, r := range relations {
+		args = append(args, "--relation", r)
+	}
+	return g.ask(ctx, args...)
+}
+
 // Path returns the shortest path between two nodes.
 func (g *graphify) Path(ctx context.Context, from, to string, undirected bool) (string, error) {
 	args := []string{"path", from, to}
