@@ -112,6 +112,37 @@ func NewServer(d Deps) *sdk.Server {
 	}, h.getLinks)
 
 	add(h, s, &sdk.Tool{
+		Name: "graph_overview",
+		Description: "Project structure from the code graph (graphify): size, core abstractions (most connected nodes), " +
+			"communities of related code, surprising connections, import cycles. " +
+			"Call it first when you start working on a project you do not know.",
+	}, h.graphOverview)
+
+	add(h, s, &sdk.Tool{
+		Name: "graph_query",
+		Description: "Ask the code graph a question (e.g. \"how are books listed over HTTP\"): returns the relevant symbols " +
+			"with file:line and their edges (calls, references, imports). Prefer it over reading or grepping files to find where " +
+			"something is; narrow with seeds or context, raise budget when the answer is truncated.",
+	}, h.graphQuery)
+
+	add(h, s, &sdk.Tool{
+		Name: "graph_node",
+		Description: "One symbol, file or node from the code graph: source location, community and its connections in both directions. " +
+			"Use path::symbol when a name is ambiguous; then get_symbol for the source.",
+	}, h.graphNode)
+
+	add(h, s, &sdk.Tool{
+		Name:        "graph_path",
+		Description: "Shortest path between two symbols in the code graph: how one reaches the other.",
+	}, h.graphPath)
+
+	add(h, s, &sdk.Tool{
+		Name: "graph_affected",
+		Description: "What depends on a symbol, transitively (reverse calls, references, imports): the impact of changing it. " +
+			"Check it before changing a signature or deleting a symbol.",
+	}, h.graphAffected)
+
+	add(h, s, &sdk.Tool{
 		Name:        "status",
 		Description: "Report configured providers, generator slots, queue, code graph state and configuration warnings.",
 	}, h.status)
