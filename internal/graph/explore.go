@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -103,6 +104,24 @@ func (g *graphify) ask(ctx context.Context, args ...string) (string, error) {
 		return out, nil
 	}
 	return "", err
+}
+
+// Query returns the part of the graph relevant to a question.
+func (g *graphify) Query(ctx context.Context, q Query) (string, error) {
+	args := []string{"query", q.Question}
+	if q.DFS {
+		args = append(args, "--dfs")
+	}
+	for _, s := range q.Seeds {
+		args = append(args, "--seed", s)
+	}
+	for _, c := range q.Context {
+		args = append(args, "--context", c)
+	}
+	if q.Budget > 0 {
+		args = append(args, "--budget", strconv.Itoa(q.Budget))
+	}
+	return g.ask(ctx, args...)
 }
 
 // fresh waits for a running reindex and rebuilds the graph when it is missing or older than the
