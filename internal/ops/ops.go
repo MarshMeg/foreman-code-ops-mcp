@@ -227,14 +227,19 @@ func (o *Ops) DeleteSymbol(ctx context.Context, file, name string, force bool) (
 	return o.gateAndCommit(ctx, cs, force, gitops.Message{Subject: fmt.Sprintf("delete %s %s", rel, name)})
 }
 
-// references finds uses of the symbol's last name segment outside its own definition.
-// references asks the code graph for inbound references and falls back to a whole-word name
-// search when the graph is not available. source describes where the references came from.
+// references asks the code graph for inbound references. When the graph is unavailable or finds
+// none, a whole-word name search is used, since graphs miss some uses. source describes where the
+// references came from.
 func (o *Ops) references(ctx context.Context, rel string, sym lang.Symbol) (refs []string, truncated bool, source string, err error) {
 	gctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	grefs, gerr := o.graph.References(gctx, rel, sym.Name)
 	cancel()
-	if gerr == nil {
+	if gerr != nil {
+		source = "references found by whole-word name search (" + gerr.Error() + "); some may be unrelated"
+		refs, truncated, err = o.grepReferences(ctx, rel, sym)
+		return refs, truncated, source, err
+	}
+	if len(grefs) > 0 {
 		for _, r := range grefs {
 			if len(refs) == maxReferences {
 				return refs, true, "references from the " + o.graph.Name() + " code graph", nil
@@ -243,9 +248,16 @@ func (o *Ops) references(ctx context.Context, rel string, sym lang.Symbol) (refs
 		}
 		return refs, false, "references from the " + o.graph.Name() + " code graph", nil
 	}
-	source = "references found by whole-word name search (" + gerr.Error() + "); some may be unrelated"
+	// Graphs miss some uses (e.g. calls through struct fields), so an empty answer is not trusted.
 	refs, truncated, err = o.grepReferences(ctx, rel, sym)
-	return refs, truncated, source, err
+	if err != nil {
+		return nil, false, "", err
+	}
+	if len(refs) == 0 {
+		return nil, false, "no references in the " + o.graph.Name() + " code graph or by name search", nil
+	}
+	source = "the " + o.graph.Name() + " code graph found no references, but a whole-word name search did; some may be unrelated"
+	return refs, truncated, source, nil
 }
 
 func (o *Ops) grepReferences(ctx context.Context, rel string, sym lang.Symbol) ([]string, bool, error) {
