@@ -54,6 +54,13 @@ func (h *handlers) explore(fn func(graph.Explorer) (string, error)) (*sdk.CallTo
 	return nil, GraphOutput{Text: text}, nil
 }
 
+// graphAffected handles graph_affected: it lists the nodes that depend on the given node.
+func (h *handlers) graphAffected(ctx context.Context, _ *sdk.CallToolRequest, in GraphAffectedInput) (*sdk.CallToolResult, GraphOutput, error) {
+	return h.explore(func(e graph.Explorer) (string, error) {
+		return e.Affected(ctx, in.Name, in.Depth, in.Relations)
+	})
+}
+
 // graphPath handles graph_path: it returns the shortest path between two nodes.
 func (h *handlers) graphPath(ctx context.Context, _ *sdk.CallToolRequest, in GraphPathInput) (*sdk.CallToolResult, GraphOutput, error) {
 	return h.explore(func(e graph.Explorer) (string, error) {
