@@ -125,7 +125,7 @@ type Git struct {
 
 // Graph configures the external code graph provider.
 type Graph struct {
-	// Provider is codebase-memory, graphify, command or noop.
+	// Provider is graphify (default), codebase-memory, command or noop. graphify also answers Claude's graph_* questions.
 	Provider string `yaml:"provider" json:"provider"`
 	// Command is the provider's executable (default: codebase-memory-mcp / graphify).
 	Command string `yaml:"command" json:"command,omitempty"`
