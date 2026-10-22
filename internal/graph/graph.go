@@ -152,6 +152,23 @@ func (b *background) wait() {
 	}
 }
 
+// waitCtx blocks until no reindex is running or ctx is done.
+func (b *background) waitCtx(ctx context.Context) error {
+	for {
+		b.mu.Lock()
+		r := b.running
+		b.mu.Unlock()
+		if !r {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+}
+
 // refsFromJSON extracts references from arbitrary JSON output: every object with a file
 // field becomes a Ref. Graph tools differ in field names, so several common ones are tried.
 func refsFromJSON(data []byte, root string) ([]Ref, error) {
