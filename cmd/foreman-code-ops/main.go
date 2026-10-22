@@ -22,6 +22,7 @@ import (
 	"github.com/MarshMeg/foreman-code-ops-mcp/internal/bench"
 	"github.com/MarshMeg/foreman-code-ops-mcp/internal/config"
 	"github.com/MarshMeg/foreman-code-ops-mcp/internal/gitops"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/graph"
 	"github.com/MarshMeg/foreman-code-ops-mcp/internal/journal"
 	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang/builtin"
 	"github.com/MarshMeg/foreman-code-ops-mcp/internal/logging"
@@ -188,6 +189,22 @@ func initProject(args []string, stderr io.Writer) error {
 	}
 	fmt.Fprintln(stderr, "next: review and commit these files; ask Claude to create .foreman/style.md with style_set")
 	return nil
+}
+
+// buildGraph builds the code graph once during init, so the first graph query is fast.
+func buildGraph(cfg config.Config, root string, stderr io.Writer) {
+	p := graph.New(cfg.Graph, root, nil)
+	b, ok := p.(interface{ Build(context.Context) error })
+	if !ok {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	if err := b.Build(ctx); err != nil {
+		fmt.Fprintf(stderr, "warning: code graph not built: %v\n", err)
+		return
+	}
+	fmt.Fprintf(stderr, "built the %s code graph in graphify-out/\n", p.Name())
 }
 
 // initExtensions picks the extensions whose direct edits are denied: the flag, or the
