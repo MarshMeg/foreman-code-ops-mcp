@@ -222,26 +222,42 @@ func enableMCP(o Options, rep *Report) error {
 	return nil
 }
 
+// gitignore makes sure the runtime paths of foreman (and graphify) are ignored by git.
 func gitignore(o Options, rep *Report) error {
-	const line = ".foreman/cache/"
+	wanted := []string{".foreman/cache/"}
+	if o.Graphify {
+		wanted = append(wanted, "graphify-out/")
+	}
 	path := filepath.Join(o.Root, ".gitignore")
 	data, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
+	present := map[string]bool{}
 	for _, l := range strings.Split(string(data), "\n") {
-		if strings.TrimSpace(l) == line || strings.TrimSpace(l) == "/"+line {
-			return nil
+		present[strings.TrimSpace(l)] = true
+	}
+	var missing []string
+	for _, w := range wanted {
+		if present[w] || present["/"+w] {
+			continue
 		}
+		missing = append(missing, w)
+	}
+	if len(missing) == 0 {
+		return nil
 	}
 	if len(data) > 0 && !bytes.HasSuffix(data, []byte("\n")) {
 		data = append(data, '\n')
 	}
-	data = append(data, []byte("# foreman-code-ops runtime files\n"+line+"\n")...)
+	data = append(data, []byte("# foreman-code-ops runtime files\n")...)
+	for _, m := range missing {
+		data = append(data, []byte(m+"\n")...)
+	}
 	if err := writeFile(path, data); err != nil {
 		return err
 	}
-	rep.add("added %s to .gitignore", line)
+	rep.add("added %s to .gitignore", strings.Join(missing, ", "))
 	return nil
 }
 
