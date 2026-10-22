@@ -26,28 +26,65 @@ func read(t *testing.T, root, rel string) string {
 func TestInitFresh(t *testing.T) {
 	root := t.TempDir()
 	write(t, root, "go.mod", "module x\n")
-	rep, err := Init(Options{Root: root, Extensions: []string{".go"}, Permissions: true, MCP: true})
+	opts := Options{Root: root, Extensions: []string{".go"}, Permissions: true, MCP: true, ClaudeMD: true, Graphify: true}
+	rep, err := Init(opts)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rep.Lines) != 4 {
+	if len(rep.Lines) != 6 {
 		t.Fatalf("report = %v", rep.Lines)
 	}
 	if !strings.Contains(read(t, root, ".foreman/workspace.yaml"), "lang: go") {
 		t.Error("workspace.yaml")
 	}
 	var settings map[string]any
-	json.Unmarshal([]byte(read(t, root, ".claude/settings.json")), &settings)
+	if err := json.Unmarshal([]byte(read(t, root, ".claude/settings.json")), &settings); err != nil {
+		t.Fatal(err)
+	}
 	deny := settings["permissions"].(map[string]any)["deny"].([]any)
 	if len(deny) != 1 || deny[0] != "Edit(**/*.go)" {
 		t.Errorf("deny = %v", deny)
+	}
+	enabled, ok := settings["enabledMcpjsonServers"].([]any)
+	if !ok || len(enabled) != 1 || enabled[0] != "foreman" {
+		t.Errorf("enabledMcpjsonServers = %v", settings["enabledMcpjsonServers"])
 	}
 	mcp := read(t, root, ".mcp.json")
 	if !strings.Contains(mcp, `"command": "foreman-code-ops"`) || !strings.Contains(mcp, "${CLAUDE_PROJECT_DIR:-.}") {
 		t.Errorf(".mcp.json = %s", mcp)
 	}
-	if !strings.Contains(read(t, root, ".gitignore"), ".foreman/cache/") {
-		t.Error(".gitignore")
+	md := read(t, root, "CLAUDE.md")
+	for _, want := range []string{"<!-- foreman-code-ops:begin -->", "<!-- foreman-code-ops:end -->", "graph_overview", "upsert_symbol"} {
+		if !strings.Contains(md, want) {
+			t.Errorf("CLAUDE.md lacks %q", want)
+		}
+	}
+	gi := read(t, root, ".gitignore")
+	for _, want := range []string{".foreman/cache/", "graphify-out/"} {
+		if !strings.Contains(gi, want) {
+			t.Errorf(".gitignore lacks %q", want)
+		}
+	}
+
+	rep2, err := Init(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	md2 := read(t, root, "CLAUDE.md")
+	if md2 != md {
+		t.Errorf("CLAUDE.md changed on second run")
+	}
+	if n := strings.Count(md2, "<!-- foreman-code-ops:begin -->"); n != 1 {
+		t.Errorf("begin marker count = %d, want 1", n)
+	}
+	found := false
+	for _, l := range rep2.Lines {
+		if strings.Contains(l, "kept CLAUDE.md (foreman section up to date)") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("second report = %v", rep2.Lines)
 	}
 }
 
