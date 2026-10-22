@@ -54,6 +54,13 @@ func (h *handlers) explore(fn func(graph.Explorer) (string, error)) (*sdk.CallTo
 	return nil, GraphOutput{Text: text}, nil
 }
 
+// graphNode handles graph_node: it explains one node and its connections.
+func (h *handlers) graphNode(ctx context.Context, _ *sdk.CallToolRequest, in GraphNodeInput) (*sdk.CallToolResult, GraphOutput, error) {
+	return h.explore(func(e graph.Explorer) (string, error) {
+		return e.Explain(ctx, in.Name, in.All)
+	})
+}
+
 // graphQuery handles graph_query: it returns the part of the code graph relevant to a question.
 func (h *handlers) graphQuery(ctx context.Context, _ *sdk.CallToolRequest, in GraphQueryInput) (*sdk.CallToolResult, GraphOutput, error) {
 	return h.explore(func(e graph.Explorer) (string, error) {
