@@ -1,14 +1,45 @@
 name: ci
 
+# One pipeline for everything: tests, lint, plugin validation and native builds on every push
+# and pull request; a tag vX.Y.Z additionally publishes a GitHub release from the same build
+# and installs it with scripts/install.sh.
+
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
 
 permissions:
   contents: read
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release: ${{ steps.version.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        name: Version (tags must match the plugin version and have a CHANGELOG section)
+        run: |
+          set -eu
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version="${GITHUB_REF_NAME#v}"
+            plugin=$(jq -r .version plugin/.claude-plugin/plugin.json)
+            if [ "$plugin" != "$version" ]; then
+              echo "::error::tag $GITHUB_REF_NAME does not match plugin/.claude-plugin/plugin.json version $plugin"
+              exit 1
+            fi
+            grep -q "^## \[$version\]" CHANGELOG.md || { echo "::error::CHANGELOG.md has no section for $version"; exit 1; }
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          else
+            version="0.0.0-dev.${GITHUB_SHA}"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
   test:
     strategy:
       fail-fast: false
@@ -75,7 +106,132 @@ jobs:
       - run: pnpm dlx @anthropic-ai/claude-code@2.1.294 plugin validate .
       - run: pnpm dlx @anthropic-ai/claude-code@2.1.294 plugin validate ./plugin
 
-  build:
-    uses: ./.github/workflows/build.yml
-    with:
-      version: 0.0.0-dev.${{ github.sha }}
+  # Native builds of the server. tree-sitter needs cgo, so each platform is built on its own
+  # runner instead of cross-compiling. Linux builds on 22.04 for an older glibc baseline (2.35).
+  binary:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-22.04, goos: linux, goarch: amd64 }
+          - { runner: ubuntu-22.04-arm, goos: linux, goarch: arm64 }
+          # macOS is best effort in v1: a failed build does not fail the pipeline.
+          - { runner: macos-15, goos: darwin, goarch: arm64, best_effort: true }
+          - { runner: macos-15-intel, goos: darwin, goarch: amd64, best_effort: true }
+    runs-on: ${{ matrix.runner }}
+    continue-on-error: ${{ matrix.best_effort == true }}
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build
+        env:
+          CGO_ENABLED: "1"
+        run: |
+          set -eu
+          name="foreman-code-ops_${VERSION}_${{ matrix.goos }}_${{ matrix.goarch }}"
+          test "$(go env GOOS)/$(go env GOARCH)" = "${{ matrix.goos }}/${{ matrix.goarch }}"
+          mkdir -p "dist/$name"
+          go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o "dist/$name/foreman-code-ops" ./cmd/foreman-code-ops
+          cp LICENSE README.md README.ru.md config.example.yaml "dist/$name/"
+          tar -C dist -czf "dist/$name.tar.gz" "$name"
+          echo "name=$name" >> "$GITHUB_ENV"
+      # The archived binary must start, report its version and answer MCP over stdio.
+      - name: Smoke test
+        run: |
+          set -eu
+          bin="dist/$name/foreman-code-ops"
+          test "$("$bin" version)" = "$VERSION"
+          if [ "${{ matrix.goos }}" = linux ]; then ldd "$bin"; else otool -L "$bin"; fi
+          proj=$(mktemp -d)
+          git -C "$proj" init -q
+          "$bin" init --project "$proj" --no-permissions
+          {
+            echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}'
+            echo '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+            echo '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+            sleep 2
+          } | "$bin" serve --project "$proj" --validator-provider none > out.jsonl
+          head -c 600 out.jsonl; echo
+          grep -q '"upsert_symbol"' out.jsonl
+          grep -q "\"version\":\"$VERSION\"" out.jsonl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: foreman-code-ops-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  sidecar:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Pack the Agent SDK sidecar
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -eu
+          cd sidecar/agent-sdk
+          jq --arg v "$VERSION" '.version = $v' package.json > package.tmp && mv package.tmp package.json
+          mkdir -p ../../dist
+          pnpm pack --pack-destination ../../dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: foreman-agent-sdk
+          path: dist/*.tgz
+          if-no-files-found: error
+
+  # Tags only: publish the archives built above, then install them as a user would.
+  publish:
+    needs: [version, test, lint, plugin, binary, sidecar]
+    if: needs.version.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: cd dist && sha256sum *.tar.gz *.tgz > checksums.txt && cat checksums.txt
+      - name: Release notes from CHANGELOG.md
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: awk -v v="$VERSION" '/^## \[/{p = index($0, "[" v "]") > 0; next} p' CHANGELOG.md > notes.md
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          prerelease=""
+          case "$GITHUB_REF_NAME" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" --notes-file notes.md $prerelease
+
+  verify:
+    needs: [version, publish]
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the published release
+        env:
+          FOREMAN_VERSION: ${{ needs.version.outputs.version }}
+          FOREMAN_BIN_DIR: ${{ runner.temp }}/bin
+        run: |
+          sh scripts/install.sh
+          test "$("$FOREMAN_BIN_DIR/foreman-code-ops" version)" = "$FOREMAN_VERSION"

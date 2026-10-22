@@ -123,7 +123,7 @@ foreman-code-ops/
 │   └── skills/foreman-code-ops/SKILL.md
 ├── docs/{README.md, config.md, adapters.md, providers.md}
 ├── testdata/{go-layered, py-fastapi, ts-express, tsx-react}
-├── .github/workflows/{ci.yml, release.yml}
+├── .github/workflows/ci.yml
 ├── LICENSE               # MIT
 └── config.example.yaml
 ```
@@ -621,7 +621,7 @@ Generic-адаптер реализует этот интерфейс по YAML.
 - [x] Документация по написанию адаптеров, примеры для Rust/C# (встроенные экспериментальные адаптеры; символы проверены тестами, гейт — только в CI, локально без cargo/dotnet), проектные адаптеры в `.foreman/adapters/`
 
 ### Этап 8 — релиз
-- [ ] Бинарники для Linux (amd64/arm64) нативной сборкой на раннерах; macOS — сборка в CI без гарантий; Windows — не в v1. Вся сборка — только в GitHub Actions (репозиторий `MarshMeg/foreman-code-ops-mcp`, module path переименован под него): `build.yml` (переиспользуемый: нативная сборка, smoke-тест MCP по stdio, упаковка sidecar), `ci.yml` (тесты, линт, валидация плагина и marketplace, снапшот-сборка на каждый push), `release.yml` (тег `vX.Y.Z`: проверка версии плагина и CHANGELOG, тесты, сборка, релиз с checksums, проверка установки через `scripts/install.sh`). Не отмечено, пока не пройдёт первый прогон
+- [x] Бинарники для Linux (amd64/arm64) нативной сборкой на раннерах; macOS — сборка в CI без гарантий; Windows — не в v1. Вся сборка — только в GitHub Actions (репозиторий `MarshMeg/foreman-code-ops-mcp`, module path переименован под него), одним конвейером `ci.yml`: на каждый push и PR — тесты, линт, валидация плагина и marketplace, нативная сборка со smoke-тестом MCP по stdio, упаковка sidecar; на тег `vX.Y.Z` дополнительно — проверка версии плагина и CHANGELOG, релиз с checksums из той же сборки, проверка установки через `scripts/install.sh`. Сборка проверена в CI; публикация по тегу ещё не запускалась
 - [ ] Публикация плагина (marketplace-репозиторий)
 - [ ] Демо-видео и пример-проект
 
