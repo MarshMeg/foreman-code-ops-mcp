@@ -1,6 +1,8 @@
 package mcp
 
 import (
+	"context"
+
 	"github.com/MarshMeg/foreman-code-ops-mcp/internal/graph"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -50,4 +52,12 @@ func (h *handlers) explore(fn func(graph.Explorer) (string, error)) (*sdk.CallTo
 		return nil, GraphOutput{}, err
 	}
 	return nil, GraphOutput{Text: text}, nil
+}
+
+// graphOverview handles graph_overview: it returns the project report with the summary, core
+// abstractions and communities.
+func (h *handlers) graphOverview(ctx context.Context, _ *sdk.CallToolRequest, _ struct{}) (*sdk.CallToolResult, GraphOutput, error) {
+	return h.explore(func(e graph.Explorer) (string, error) {
+		return e.Overview(ctx)
+	})
 }
