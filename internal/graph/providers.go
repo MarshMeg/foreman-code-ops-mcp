@@ -192,7 +192,8 @@ func (g *graphify) Available(context.Context) (bool, string) {
 	return true, ""
 }
 
-// Reindex runs `graphify update .` unless graphify's own git hook rebuilds on commit.
+// Reindex runs `graphify update .` in the background unless graphify's own git hook rebuilds the
+// graph on commit.
 func (g *graphify) Reindex(context.Context, []string) error {
 	if g.cfg.AutoIndex {
 		return nil
@@ -201,7 +202,7 @@ func (g *graphify) Reindex(context.Context, []string) error {
 		return nil
 	}
 	g.bg.submit(func(ctx context.Context) error {
-		_, err := run(ctx, g.root, nil, g.bin, "update", ".", "--no-viz")
+		_, _, err := g.cli(ctx, "update", ".")
 		return err
 	})
 	return nil
