@@ -17,3 +17,12 @@ func dropSection(md, prefix string) string {
 	}
 	return strings.Join(kept, "\n")
 }
+
+// Query is a graph question.
+type Query struct {
+	Question string
+	Seeds    []string // start nodes instead of the question's keyword matches
+	Context  []string // edge-context filter, e.g. call
+	DFS      bool     // depth-first instead of breadth-first
+	Budget   int      // output cap in tokens; 0 uses graphify's default
+}
