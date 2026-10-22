@@ -106,6 +106,15 @@ func (g *graphify) ask(ctx context.Context, args ...string) (string, error) {
 	return "", err
 }
 
+// Path returns the shortest path between two nodes.
+func (g *graphify) Path(ctx context.Context, from, to string, undirected bool) (string, error) {
+	args := []string{"path", from, to}
+	if undirected {
+		args = append(args, "--undirected")
+	}
+	return g.ask(ctx, args...)
+}
+
 // Explain returns one node (source location, community) and its connections.
 func (g *graphify) Explain(ctx context.Context, name string, all bool) (string, error) {
 	args := []string{"explain", name}
