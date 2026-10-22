@@ -103,7 +103,7 @@ func (a *Anthropic) Complete(ctx context.Context, req Request) (Response, error)
 	case anthropic.BetaStopReasonRefusal:
 		return Response{}, fmt.Errorf("%s: the model declined the request (%s)", a.Name(), resp.StopDetails.Category)
 	case anthropic.BetaStopReasonMaxTokens:
-		return Response{}, fmt.Errorf("%s: answer truncated at max_tokens (%d)", a.Name(), maxTokens)
+		return Response{}, fmt.Errorf("%s: answer truncated at max_tokens (%d): %w", a.Name(), maxTokens, ErrInvalidAnswer)
 	}
 	var text strings.Builder
 	for _, block := range resp.Content {
