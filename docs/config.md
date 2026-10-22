@@ -47,6 +47,10 @@ settings drop the section prefix.
 | `graph.command` | `--graph-command` | `FOREMAN_GRAPH_COMMAND` |
 | `graph.project` | `--graph-project` | `FOREMAN_GRAPH_PROJECT` |
 | `graph.auto_index` | `--graph-auto-index` | `FOREMAN_GRAPH_AUTO_INDEX` |
+| `lsp.enabled` | `--lsp-enabled` | `FOREMAN_LSP_ENABLED` |
+| `lsp.idle_timeout` | `--lsp-idle-timeout` | `FOREMAN_LSP_IDLE_TIMEOUT` |
+| `agent_sdk.command` | `--agent-sdk-command` | `FOREMAN_AGENT_SDK_COMMAND` |
+| `agent_sdk.effort` | `--agent-sdk-effort` | `FOREMAN_AGENT_SDK_EFFORT` |
 | `log.level` | `--log-level` | `FOREMAN_LOG_LEVEL` |
 | `log.file` | `--log-file` | `FOREMAN_LOG_FILE` |
 

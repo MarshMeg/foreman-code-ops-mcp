@@ -94,6 +94,8 @@ var langExtensions = map[string][]string{
 	"typescript": {".ts", ".mts", ".cts", ".tsx", ".jsx"},
 	"tsx":        {".tsx", ".jsx"},
 	"javascript": {".js", ".jsx"},
+	"rust":       {".rs"},
+	"csharp":     {".cs"},
 }
 
 // ExtensionsFor returns the extensions to deny for the languages a project uses. A

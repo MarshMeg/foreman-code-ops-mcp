@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      # Language toolchains for the Python and TypeScript adapter tests (skipped when missing).
+      # Language toolchains for the adapter gate tests (each test is skipped when its tools are missing).
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -31,9 +31,18 @@ jobs:
           node-version: "22"
       - run: pip install ruff pyright mypy pytest
       - run: npm install -g typescript prettier @biomejs/biome eslint vitest
+      # Rust (cargo, rustfmt) is preinstalled on GitHub runners; make sure rustfmt is there.
+      - run: rustup component add rustfmt
+      # Language servers for the LSP tests (pyright-langserver comes with pyright, tsc --lsp with TypeScript 7).
+      - run: go install golang.org/x/tools/gopls@v0.20.0 && echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
       - run: go vet ./...
       - run: go test -race ./...
       - run: go build ./cmd/foreman-code-ops
+      # The sidecar's unit tests use a fake query function; no SDK install or API key needed.
+      - run: node --test 'sidecar/agent-sdk/*.test.mjs'
 
   lint:
     runs-on: ubuntu-latest

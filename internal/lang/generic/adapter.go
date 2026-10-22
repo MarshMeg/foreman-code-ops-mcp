@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 	"unsafe"
@@ -89,8 +90,9 @@ const (
 )
 
 type capture struct {
-	role captureRole
-	kind string // for roleDefinition
+	role  captureRole
+	kind  string // for roleDefinition
+	order int    // for roleScope: @scope is 0, @scope.1 is 1, ...
 }
 
 // Load reads <dir>/adapter.yaml from fsys. grammars maps grammar names to tree-sitter
@@ -112,7 +114,12 @@ func Load(fsys fs.FS, dir string, grammars map[string]unsafe.Pointer) (*Adapter,
 	}
 	ptr, ok := grammars[spec.Grammar]
 	if !ok {
-		return nil, fmt.Errorf("adapter %s: grammar %q is not compiled in", spec.Lang, spec.Grammar)
+		names := make([]string, 0, len(grammars))
+		for n := range grammars {
+			names = append(names, n)
+		}
+		sort.Strings(names)
+		return nil, fmt.Errorf("adapter %s: grammar %q is not compiled in (available: %s)", spec.Lang, spec.Grammar, strings.Join(names, ", "))
 	}
 	a, err := New(spec, ts.NewLanguage(ptr), string(querySrc))
 	if err != nil {
@@ -170,6 +177,12 @@ func New(spec Spec, language *ts.Language, symbolsQuery string) (*Adapter, error
 			c.role, hasName = roleName, true
 		case name == "scope":
 			c.role = roleScope
+		case strings.HasPrefix(name, "scope."):
+			n, err := strconv.Atoi(strings.TrimPrefix(name, "scope."))
+			if err != nil || n < 1 {
+				return nil, fmt.Errorf("adapter %s: capture @%s: want @scope.<n> with n >= 1", spec.Lang, name)
+			}
+			c.role, c.order = roleScope, n
 		}
 		a.captures = append(a.captures, c)
 	}
@@ -295,7 +308,21 @@ type rawDef struct {
 	node    *ts.Node
 	kind    string
 	name    string
-	scope   string
+	scopes  map[int]string
+}
+
+// scope joins the @scope, @scope.1, ... captures in order: impl Display for Book → Book.Display.
+func (d *rawDef) scope() []string {
+	orders := make([]int, 0, len(d.scopes))
+	for o := range d.scopes {
+		orders = append(orders, o)
+	}
+	sort.Ints(orders)
+	out := make([]string, len(orders))
+	for i, o := range orders {
+		out[i] = d.scopes[o]
+	}
+	return out
 }
 
 // Symbols implements lang.Adapter.
@@ -330,7 +357,10 @@ func (a *Adapter) Symbols(src []byte) ([]lang.Symbol, error) {
 			case roleName:
 				d.name = c.Node.Utf8Text(src)
 			case roleScope:
-				d.scope = c.Node.Utf8Text(src)
+				if d.scopes == nil {
+					d.scopes = map[int]string{}
+				}
+				d.scopes[info.order] = c.Node.Utf8Text(src)
 			}
 		}
 		if d.node == nil || d.name == "" {
@@ -348,10 +378,7 @@ func (a *Adapter) Symbols(src []byte) ([]lang.Symbol, error) {
 
 	out := make([]lang.Symbol, 0, len(defs))
 	for _, d := range defs {
-		parts := []string{d.name}
-		if d.scope != "" {
-			parts = append([]string{d.scope}, parts...)
-		}
+		parts := append(d.scope(), d.name)
 		for p := d.node.Parent(); p != nil; p = p.Parent() {
 			if anc, ok := byID[p.Id()]; ok {
 				parts = append([]string{anc.name}, parts...)
@@ -405,15 +432,25 @@ func (a *Adapter) commentStart(n *ts.Node) pos {
 		if !slices.Contains(a.spec.LeadingComments, prev.Kind()) {
 			break
 		}
-		if int(prev.EndPosition().Row) != cur.row-1 {
+		if endRow(prev) != cur.row-1 {
 			break
 		}
-		if before := prev.PrevSibling(); before != nil && before.EndPosition().Row == prev.StartPosition().Row {
+		if before := prev.PrevSibling(); before != nil && endRow(before) == int(prev.StartPosition().Row) {
 			break // trailing comment of the previous statement
 		}
 		cur = pos{int(prev.StartByte()), int(prev.StartPosition().Row)}
 	}
 	return cur
+}
+
+// endRow is the last row holding n's text: comment nodes that include their newline (Rust
+// line comments) end at column 0 of the next row.
+func endRow(n *ts.Node) int {
+	end := n.EndPosition()
+	if end.Column == 0 && end.Row > n.StartPosition().Row {
+		return int(end.Row) - 1
+	}
+	return int(end.Row)
 }
 
 // signature is the declaration text from the outer node (with export/type keywords) up to

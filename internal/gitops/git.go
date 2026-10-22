@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // Repo runs git in a project directory (which may be a subdirectory of the work tree).
@@ -191,4 +192,47 @@ type GrepMatch struct {
 	Path string
 	Line int
 	Text string
+}
+
+// CommitInfo is a foreman commit found in the history.
+type CommitInfo struct {
+	Hash     string
+	Time     time.Time
+	Subject  string
+	Trailers map[string]string
+}
+
+// ForemanCommits returns commits that touch the project directory and carry the
+// Foreman-Written-By trailer, newest first. A zero since means the whole history.
+func (r *Repo) ForemanCommits(ctx context.Context, since time.Time) ([]CommitInfo, error) {
+	args := []string{"log", "--format=%H%x1f%aI%x1f%s%x1f%(trailers:only,unfold)%x1e", "--grep=^" + TrailerWrittenBy + ":"}
+	if !since.IsZero() {
+		args = append(args, "--since="+since.Format(time.RFC3339))
+	}
+	out, err := r.git(ctx, nil, append(args, "--", ".")...)
+	if err != nil {
+		// A repository without commits has no history to report.
+		if _, herr := r.git(ctx, nil, "rev-parse", "--verify", "-q", "HEAD"); herr != nil {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var commits []CommitInfo
+	for _, rec := range strings.Split(out, "\x1e") {
+		f := strings.SplitN(strings.TrimLeft(rec, "\n"), "\x1f", 4)
+		if len(f) < 4 {
+			continue
+		}
+		c := CommitInfo{Hash: f[0], Subject: f[2], Trailers: map[string]string{}}
+		c.Time, _ = time.Parse(time.RFC3339, f[1])
+		for _, line := range strings.Split(f[3], "\n") {
+			if k, v, ok := strings.Cut(line, ":"); ok && strings.HasPrefix(k, "Foreman-") {
+				c.Trailers[k] = strings.TrimSpace(v)
+			}
+		}
+		if c.Trailers[TrailerWrittenBy] != "" {
+			commits = append(commits, c)
+		}
+	}
+	return commits, nil
 }

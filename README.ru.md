@@ -12,20 +12,21 @@ MCP-сервер и плагин для Claude Code, который делит �
 Claude вызывает `upsert_symbol` вместо `Edit`/`Write`. Каждый успешный вызов — один коммит
 с трейлерами `Foreman-Written-By`, `Foreman-Reviewed-By` и `Foreman-Attempts`.
 
-> **Статус: ранняя разработка (этап 6).** Go, Python, TypeScript/JavaScript и TSX/JSX работают
+> **Статус: ранняя разработка (этап 7).** Go, Python, TypeScript/JavaScript и TSX/JSX работают
 > целиком: генерация под размер слота, гейт и цикл исправлений, ревью и фолбэк облачным
 > валидатором, коммиты с трейлерами, стиль проекта, граф кода, плагин для Claude Code и связи
-> между сервисами монорепо. Дальше — Agent SDK, LSP-диагностики и статистика.
+> между сервисами монорепо. Экспериментально: адаптеры Rust и C#, языковые серверы как быстрый
+> этап гейта, провайдер на Agent SDK и `stats`.
 > План развития — в [документе проекта](docs/design/plan-v4.ru.md).
 
 ## Поддержка
 
 | | v1 |
 |---|---|
-| Языки | Go, Python, TypeScript/JavaScript, TSX/JSX |
+| Языки | Go, Python, TypeScript/JavaScript, TSX/JSX; Rust и C# — экспериментально; свои адаптеры в проекте |
 | Платформы | Linux; macOS — без гарантий; Windows — не в v1 |
-| Генератор | любой OpenAI-совместимый эндпоинт (llama-server, vLLM, LM Studio), OpenRouter, Anthropic |
-| Валидатор | OpenRouter (по умолчанию `z-ai/glm-5.3-flash`), OpenAI-совместимый, Anthropic или `none` |
+| Генератор | любой OpenAI-совместимый эндпоинт (llama-server, vLLM, LM Studio), OpenRouter, Anthropic, Claude Agent SDK |
+| Валидатор | OpenRouter (по умолчанию `z-ai/glm-5.3-flash`), OpenAI-совместимый, Anthropic, Claude Agent SDK или `none` |
 | Граф кода | codebase-memory-mcp, graphify или без графа |
 
 ## Установка
@@ -67,9 +68,16 @@ Claude вызывает `upsert_symbol` вместо `Edit`/`Write`. Кажды�
 | TypeScript | .ts .mts .cts | biome или prettier | `tsc` (проект), biome lint или eslint | vitest или jest `-t` |
 | TSX/JSX | .tsx .jsx | то же | то же | то же |
 | JavaScript | .js .mjs .cjs | то же | `tsc` при `checkJs`, biome lint или eslint | то же |
+| Rust (экспериментально) | .rs | rustfmt | `cargo check` (крейт) | `cargo test` |
+| C# (экспериментально) | .cs | — | `dotnet build` | `dotnet test --filter` |
 
 Инструменты ищутся в `node_modules/.bin`, `.venv/bin` и PATH и выбираются по конфигам проекта. У
 Python нет компилятора, поэтому поставьте pyright (или mypy) и не отключайте валидатор.
+
+При `lsp.enabled: true` изменённые файлы сначала проверяют тёплые языковые серверы (gopls,
+pyright, `tsc --lsp` или typescript-language-server): большинство ошибок находится быстрее
+секунды. Команды из таблицы всё равно выполняются перед каждым коммитом. Проект может добавить
+или переопределить адаптеры в `.foreman/adapters/` ([docs/adapters.md](docs/adapters.md)).
 
 ## Настройка
 
@@ -82,6 +90,14 @@ foreman-code-ops config --project .
 ```
 
 выводит итоговую конфигурацию.
+
+```bash
+foreman-code-ops stats --project . --since 7d
+```
+
+показывает, что сделал foreman: исходы `upsert_symbol` (написано локально, валидатором, с первой
+попытки), круги исправлений и ревью, задержки инструментов, токены и стоимость по моделям из
+локального журнала, а также трейлеры `Foreman-*` из истории git (`--json` — для скриптов).
 
 Локальный генератор с тремя слотами по 64k:
 

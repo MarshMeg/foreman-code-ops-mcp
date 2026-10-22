@@ -5,6 +5,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -17,7 +18,26 @@ type Config struct {
 	Limits    Limits    `yaml:"limits" json:"limits"`
 	Git       Git       `yaml:"git" json:"git"`
 	Graph     Graph     `yaml:"graph" json:"graph"`
+	AgentSDK  AgentSDK  `yaml:"agent_sdk" json:"agent_sdk"`
+	LSP       LSP       `yaml:"lsp" json:"lsp"`
 	Log       Log       `yaml:"log" json:"log"`
+}
+
+// LSP configures language servers as a fast first stage of the gate.
+type LSP struct {
+	// Enabled starts the adapters' language servers (toolchain.lsp) and checks candidate files
+	// with them before the check commands; errors they find skip the slower commands.
+	Enabled bool `yaml:"enabled" json:"enabled"`
+	// IdleTimeout stops servers unused for this long.
+	IdleTimeout Duration `yaml:"idle_timeout" json:"idle_timeout"`
+}
+
+// AgentSDK configures the Node sidecar behind provider "agent-sdk" (sidecar/agent-sdk).
+type AgentSDK struct {
+	// Command starts the sidecar; it is split on spaces.
+	Command string `yaml:"command" json:"command"`
+	// Effort is passed to the Agent SDK: low | medium | high | xhigh | max; empty keeps the model default.
+	Effort string `yaml:"effort" json:"effort,omitempty"`
 }
 
 // Generator configures the model that writes code.
@@ -154,9 +174,11 @@ func Default() Config {
 			CheckTimeout:        Duration(120 * time.Second),
 			TestTimeout:         Duration(600 * time.Second),
 		},
-		Git:   Git{Dirty: "refuse"},
-		Graph: Graph{Provider: "codebase-memory"},
-		Log:   Log{Level: "info"},
+		Git:      Git{Dirty: "refuse"},
+		Graph:    Graph{Provider: "codebase-memory"},
+		AgentSDK: AgentSDK{Command: "foreman-agent-sdk"},
+		LSP:      LSP{IdleTimeout: Duration(10 * time.Minute)},
+		Log:      Log{Level: "info"},
 	}
 }
 
@@ -167,6 +189,7 @@ var (
 	dirtyModes         = []string{"refuse", "include"}
 	graphProviders     = []string{"codebase-memory", "graphify", "command", "noop"}
 	logLevels          = []string{"debug", "info", "warn", "error"}
+	efforts            = []string{"", "low", "medium", "high", "xhigh", "max"}
 )
 
 // Validate reports all configuration errors at once.
@@ -209,6 +232,10 @@ func (c Config) Validate() error {
 	if c.Graph.Provider == "command" {
 		check(len(c.Graph.References) > 0, "graph.references is required for graph.provider command")
 	}
+	if c.Generator.Provider == "agent-sdk" || c.Validator.Provider == "agent-sdk" {
+		check(strings.TrimSpace(c.AgentSDK.Command) != "", "agent_sdk.command is required for provider agent-sdk")
+	}
+	oneOf("agent_sdk.effort", c.AgentSDK.Effort, efforts)
 	oneOf("log.level", c.Log.Level, logLevels)
 	return errors.Join(errs...)
 }

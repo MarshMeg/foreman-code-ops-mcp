@@ -16,12 +16,12 @@ import (
 // skipDirs are never searched for service markers.
 var skipDirs = map[string]bool{
 	"node_modules": true, "vendor": true, "venv": true, "__pycache__": true,
-	"dist": true, "build": true, "target": true, "testdata": true,
+	"dist": true, "build": true, "target": true, "testdata": true, "bin": true, "obj": true,
 }
 
 // Discover finds service roots under root by their marker files:
 // go.mod (go), pyproject.toml / setup.py (python), tsconfig.json (typescript),
-// package.json without tsconfig.json (javascript).
+// package.json without tsconfig.json (javascript), Cargo.toml (rust), *.csproj (csharp).
 func Discover(root string) ([]Service, error) {
 	var found []Service
 	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
@@ -49,6 +49,12 @@ func Discover(root string) ([]Service, error) {
 		}
 		if has("pyproject.toml") || has("setup.py") {
 			add("python")
+		}
+		if has("Cargo.toml") {
+			add("rust")
+		}
+		if csproj, _ := filepath.Glob(filepath.Join(p, "*.csproj")); len(csproj) > 0 {
+			add("csharp")
 		}
 		switch {
 		case has("tsconfig.json"):

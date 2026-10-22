@@ -207,6 +207,7 @@ func (h *handlers) status(ctx context.Context, _ *sdk.CallToolRequest, _ struct{
 		out.Warnings = append(out.Warnings, warnings...)
 		out.Warnings = append(out.Warnings, h.d.Ops.ToolWarnings()...)
 		out.Graph.Provider, out.Graph.Available, out.Graph.Reason = h.d.Ops.GraphStatus(ctx)
+		out.LSP.Enabled, out.LSP.Running = h.d.Ops.LSPStatus()
 	}
 	if !out.Validator.Enabled {
 		out.Warnings = append(out.Warnings, "validator disabled: the build/lint gate is the only check")
@@ -293,7 +294,7 @@ func (h *handlers) upsertSymbol(ctx context.Context, _ *sdk.CallToolRequest, in 
 		Status: r.Status, Message: r.Message, Symbol: r.Symbol, Signature: r.Signature, Diff: r.Diff, Commit: r.Commit,
 		WrittenBy: r.WrittenBy, ReviewedBy: r.ReviewedBy, Attempts: Attempts{BuildFixes: r.BuildFixes, Reviews: r.Reviews},
 		MinorNotes: r.MinorNotes, Diagnostics: r.Diagnostics, LastCode: r.LastCode, Warnings: r.Warnings,
-		file: req.File,
+		file: req.File, res: r,
 	}
 	if out.Diagnostics == nil {
 		out.Diagnostics = []Diagnostic{}
@@ -310,6 +311,16 @@ func (h *handlers) upsertSymbol(ctx context.Context, _ *sdk.CallToolRequest, in 
 func (o UpsertSymbolOutput) journal(e *journal.Entry) {
 	e.File, e.Symbol, e.Status, e.WrittenBy = o.file, o.Symbol, o.Status, o.WrittenBy
 	e.BuildFixes, e.Reviews, e.Commit = o.Attempts.BuildFixes, o.Attempts.Reviews, o.Commit
+	e.Fallback, e.Lang, e.Mode = o.res.FallbackAttempts, o.res.Lang, o.res.Mode
+	e.Generator, e.Validator = journalUsage(o.res.Generator), journalUsage(o.res.Validator)
+}
+
+func journalUsage(u ops.Usage) *journal.Usage {
+	if u.PromptTokens == 0 && u.CompletionTokens == 0 {
+		return nil
+	}
+	return &journal.Usage{Model: u.Model, PromptTokens: u.PromptTokens, CompletionTokens: u.CompletionTokens,
+		CachedTokens: u.CachedTokens, Cost: u.Cost}
 }
 
 func (h *handlers) discoverLinks(ctx context.Context, _ *sdk.CallToolRequest, _ struct{}) (*sdk.CallToolResult, DiscoverLinksOutput, error) {

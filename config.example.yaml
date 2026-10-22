@@ -52,6 +52,14 @@ graph:
   # reindex: [mytool, reindex, "{root}"]
   # references: [mytool, refs, "{name}", --file, "{file}"]
 
+lsp:                            # experimental: language servers as a fast first gate stage
+  enabled: false                # gopls, pyright-langserver, tsc --lsp / typescript-language-server
+  idle_timeout: 10m             # stop servers unused for this long
+
+agent_sdk:                      # used by provider agent-sdk (see sidecar/agent-sdk)
+  command: foreman-agent-sdk    # e.g. "node /path/to/sidecar/agent-sdk/index.mjs"
+  effort: ""                    # low | medium | high | xhigh | max; empty: model default
+
 log:
   level: info                   # debug | info | warn | error (logs go to stderr)
   file: ""

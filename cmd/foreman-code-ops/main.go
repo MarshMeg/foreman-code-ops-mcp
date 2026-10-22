@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/MarshMeg/foreman-code-ops/internal/bench"
 	"github.com/MarshMeg/foreman-code-ops/internal/config"
+	"github.com/MarshMeg/foreman-code-ops/internal/gitops"
 	"github.com/MarshMeg/foreman-code-ops/internal/journal"
 	"github.com/MarshMeg/foreman-code-ops/internal/lang/builtin"
 	"github.com/MarshMeg/foreman-code-ops/internal/logging"
@@ -28,6 +30,7 @@ import (
 	"github.com/MarshMeg/foreman-code-ops/internal/project"
 	"github.com/MarshMeg/foreman-code-ops/internal/providers"
 	"github.com/MarshMeg/foreman-code-ops/internal/setup"
+	"github.com/MarshMeg/foreman-code-ops/internal/stats"
 )
 
 // version is set at build time via -ldflags "-X main.version=...".
@@ -59,8 +62,10 @@ func run(args []string, stderr io.Writer) error {
 		return initProject(args, stderr)
 	case "bench-review":
 		return benchReview(args, stderr)
+	case "stats":
+		return printStats(args, os.Stdout, stderr)
 	default:
-		return fmt.Errorf("unknown command %q (commands: serve, init, config, bench-review, version)", cmd)
+		return fmt.Errorf("unknown command %q (commands: serve, init, config, stats, bench-review, version)", cmd)
 	}
 }
 
@@ -123,14 +128,18 @@ func serve(args []string, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	reg, err := builtin.Registry()
+	reg, own, err := builtin.RegistryFor(proj.Root)
 	if err != nil {
 		return err
+	}
+	if len(own) > 0 {
+		logger.Info("project adapters loaded", "langs", own)
 	}
 	o, err := ops.New(proj, reg, cfg, logger)
 	if err != nil {
 		return err
 	}
+	defer o.Close()
 	s := mcp.NewServer(mcp.Deps{Version: version, ProjectDir: proj.Root, Config: cfg, Logger: logger, Journal: j, Ops: o})
 	if err := s.Run(ctx, &sdk.StdioTransport{}); err != nil && !errors.Is(err, context.Canceled) {
 		return err
@@ -253,4 +262,68 @@ func benchReview(args []string, stderr io.Writer) error {
 	}
 	bench.WriteMarkdown(os.Stdout, results)
 	return nil
+}
+
+// printStats reports what foreman did, from the local journal and the git trailers.
+func printStats(args []string, stdout, stderr io.Writer) error {
+	fs := flag.NewFlagSet("stats", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	dir := fs.String("project", ".", "project root")
+	sinceFlag := fs.String("since", "", "only work since a date (2026-10-01) or a duration ago (7d, 12h)")
+	asJSON := fs.Bool("json", false, "print JSON")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	root, err := filepath.Abs(*dir)
+	if err != nil {
+		return err
+	}
+	since, err := parseSince(*sinceFlag, time.Now())
+	if err != nil {
+		return err
+	}
+	rep := stats.Report{Since: since}
+	if rep.Journal, err = stats.ReadJournal(filepath.Join(root, config.DirName, "cache", "journal.jsonl"), since); err != nil {
+		return err
+	}
+	ctx := context.Background()
+	if repo, err := gitops.Open(ctx, root); err == nil {
+		commits, err := repo.ForemanCommits(ctx, since)
+		if err != nil {
+			return err
+		}
+		rep.Git = stats.SummarizeCommits(commits)
+	} else {
+		fmt.Fprintln(stderr, "git history skipped:", err)
+	}
+	if *asJSON {
+		enc := json.NewEncoder(stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(rep)
+	}
+	stats.WriteText(stdout, rep)
+	return nil
+}
+
+// parseSince accepts "", a date, an RFC 3339 time or a duration with a d (days) unit.
+func parseSince(v string, now time.Time) (time.Time, error) {
+	v = strings.TrimSpace(v)
+	switch {
+	case v == "":
+		return time.Time{}, nil
+	case strings.HasSuffix(v, "d"):
+		if n, err := strconv.Atoi(strings.TrimSuffix(v, "d")); err == nil && n >= 0 {
+			return now.AddDate(0, 0, -n), nil
+		}
+	default:
+		if d, err := time.ParseDuration(v); err == nil {
+			return now.Add(-d), nil
+		}
+		for _, layout := range []string{time.DateOnly, time.RFC3339} {
+			if t, err := time.ParseInLocation(layout, v, time.Local); err == nil {
+				return t, nil
+			}
+		}
+	}
+	return time.Time{}, fmt.Errorf("invalid --since %q: use a date (2026-10-01) or a duration (7d, 12h)", v)
 }

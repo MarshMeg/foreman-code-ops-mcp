@@ -17,6 +17,7 @@ import (
 
 	"github.com/MarshMeg/foreman-code-ops/internal/config"
 	"github.com/MarshMeg/foreman-code-ops/internal/lang"
+	"github.com/MarshMeg/foreman-code-ops/internal/lsp"
 	"github.com/MarshMeg/foreman-code-ops/internal/project"
 	"github.com/MarshMeg/foreman-code-ops/internal/workspace"
 )
@@ -30,6 +31,7 @@ type Gate struct {
 	reg    *lang.Registry
 	limits config.Limits
 	res    map[string]*regexp.Regexp
+	lsp    *lsp.Pool // nil: no language servers
 }
 
 // New validates that every adapter's built-in steps exist and precompiles patterns.
@@ -197,6 +199,17 @@ func (g *Gate) Check(ctx context.Context, cs *workspace.Changeset, paths []strin
 	ran := map[string]bool{} // adapters sharing a root and command (ts, tsx) run it once
 	for _, gr := range groups {
 		tc := gr.adapter.Toolchain()
+		// A warm language server finds most errors in the changed files much faster than the
+		// check commands; when it does, the commands are skipped. A clean result still runs
+		// them, since only they see the whole root.
+		if name, ds, warns, ok := g.lspCheck(ctx, gr, cs); ok || len(warns) > 0 {
+			rep.Warnings = append(rep.Warnings, warns...)
+			if ok && HasErrors(ds) {
+				rep.Checked = append(rep.Checked, gr.root+": "+name)
+				rep.Diagnostics = append(rep.Diagnostics, ds...)
+				continue
+			}
+		}
 		e, err := g.newEnv(gr.adapter, gr.root, cs)
 		if err != nil {
 			return Report{}, err

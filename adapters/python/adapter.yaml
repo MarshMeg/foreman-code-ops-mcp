@@ -51,6 +51,10 @@ toolchain:
       run: [mypy, --no-error-summary, --no-color-output, --show-column-numbers, "{files}"]
       pattern: '^(?P<file>[^:\s][^:]*\.pyi?):(?P<line>\d+):(?P<col>\d+): error: (?P<message>.*)$'
       only_matches: true
+  lsp:
+    - name: pyright
+      run: [pyright-langserver, --stdio]
+      language_ids: {.py: python, .pyi: python}
   tests:
     - name: pytest
       run: [pytest, -q, "{packages}"]

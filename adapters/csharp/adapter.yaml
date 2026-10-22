@@ -1,0 +1,43 @@
+# C# (experimental): symbols and imports are tested; the toolchain is not yet verified
+# against real projects.
+lang: csharp
+grammar: c_sharp
+extensions: [.cs]
+symbols_query: symbols.scm
+imports_query: imports.scm
+prompt: prompt.md
+body_fields:
+  method: body
+  class: body
+  interface: body
+  type: body
+# XML doc comments (///) are comment nodes; attributes ([HttpGet]) are part of the declaration.
+leading_comments: [comment]
+nested_members: true
+import_preamble: [comment]
+new_file:
+  # The namespace of a sibling file, else the directory name.
+  template: |
+    namespace {{.Package}};
+  package_regexp: '(?m)^\s*namespace\s+([A-Za-z_][\w.]*)'
+strip:
+  - '(?m)^\s*(?:global\s+)?using\s+(?:static\s+)?[\w.]+(?:\s*=\s*[\w.<>, ]+)?\s*;[ \t]*\n?'
+  - '(?m)^namespace\s+[\w.]+\s*;[ \t]*\n?'
+
+toolchain:
+  root_markers: ["*.csproj"]
+  overlay: false
+  package_pattern: "."
+  recursive_pattern: "."
+  all_packages: "."
+  insert_imports: {name: insert imports, builtin: insert-imports}
+  check:
+    - name: dotnet build
+      run: [dotnet, build, --nologo, -v, q, "-clp:NoSummary"]
+      pattern: '^\s*(?P<file>[^(\s][^(]*\.cs)\((?P<line>\d+),(?P<col>\d+)\): (?P<severity>error|warning) (?P<message>[A-Z]+\d+: .*?)(?: \[[^\]]+\])?$'
+      only_matches: true
+      scope: all
+  tests:
+    - name: dotnet test
+      run: [dotnet, test, --nologo, -v, q]
+      filter: [--filter, "{filter}"]

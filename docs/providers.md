@@ -8,7 +8,7 @@ and takes over when the generator fails. They are configured separately (see [co
 | `openai` | yes | yes | any OpenAI-compatible endpoint (llama-server, vLLM, LM Studio, OpenAI) |
 | `openrouter` | yes | yes (default) | key from `OPENROUTER_API_KEY`; reports cost and cached tokens |
 | `anthropic` | yes | yes | official Go SDK; key from `ANTHROPIC_API_KEY` or an `ant auth login` profile |
-| `agent-sdk` | later | later | stage 7 |
+| `agent-sdk` | yes | yes | Claude Agent SDK through a Node sidecar; see [below](#agent-sdk) |
 | `none` | — | yes | disables review and fallback; the gate is the only check |
 
 ## Generator
@@ -108,6 +108,40 @@ At most `limits.max_parallel_reviews` validator requests run at once. Reviews pu
 guide and context first so provider prompt caches can reuse them. With Anthropic models, the
 system prompt is cached explicitly, and Claude Fable 5.1 / Opus 5.5 / Opus 5 get server-side
 refusal fallbacks (`fallbacks: "default"`).
+
+## Agent SDK
+
+The Claude Agent SDK exists for TypeScript and Python, not Go, so provider `agent-sdk` runs a
+small Node process, [`sidecar/agent-sdk`](../sidecar/agent-sdk). foreman starts it on the first
+request, keeps it running, and sends requests as JSON lines; one process serves concurrent
+requests. If it exits, pending requests fail with the end of its stderr and the next request
+starts a new one. Node is only needed when this provider is used.
+
+```bash
+npm install -g ./sidecar/agent-sdk     # installs the foreman-agent-sdk command
+export ANTHROPIC_API_KEY=...           # or CLAUDE_CODE_USE_BEDROCK / _VERTEX / _FOUNDRY with their credentials
+```
+
+```yaml
+validator:
+  provider: agent-sdk
+  model: claude-opus-5-5
+agent_sdk:
+  command: foreman-agent-sdk           # or: node /path/to/sidecar/agent-sdk/index.mjs
+  effort: medium                       # optional: low | medium | high | xhigh | max
+```
+
+Each request is one `query()` with no built-in tools (`tools: []`), no user or project settings
+and no CLAUDE.md (`settingSources: []`), no MCP servers, no saved session, in an empty temporary
+directory. Structured answers use the SDK's `outputFormat` (JSON Schema); foreman validates the
+answer again like for every provider. Earlier turns of a retry are quoted in the prompt, since a
+query takes one prompt. Token usage and `total_cost_usd` from the result go to the journal
+(`foreman-code-ops stats`). `temperature` and `max_tokens` have no Agent SDK equivalent and are
+ignored.
+
+Compared with `anthropic`, the sidecar adds a Node process and the Agent SDK's own overhead
+for each request; use it when you already run Claude through the Agent SDK (for example on
+Bedrock, Vertex or Foundry with the SDK's configuration), otherwise `anthropic` is simpler.
 
 ## Measuring validators
 

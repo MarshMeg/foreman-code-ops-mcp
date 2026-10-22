@@ -15,6 +15,9 @@ type Spec struct {
 	Temperature float64
 	Structured  string
 	Timeout     time.Duration
+	// AgentCommand and Effort configure provider agent-sdk.
+	AgentCommand []string
+	Effort       string
 }
 
 // DefaultBaseURL returns the endpoint used when Spec.BaseURL is empty.
@@ -75,7 +78,7 @@ func New(s Spec) (Provider, error) {
 		// With no key the SDK resolves other credentials (ANTHROPIC_AUTH_TOKEN, `ant auth login` profiles).
 		return NewAnthropic(AnthropicOptions{APIKey: key, BaseURL: s.BaseURL, Model: s.Model, Timeout: s.Timeout}), nil
 	case "agent-sdk":
-		return nil, fmt.Errorf("provider agent-sdk is not implemented yet")
+		return NewAgentSDK(AgentSDKOptions{Command: s.AgentCommand, Model: s.Model, Effort: s.Effort, Timeout: s.Timeout})
 	default:
 		return nil, fmt.Errorf("unknown provider %q", s.Provider)
 	}

@@ -222,3 +222,38 @@ func TestJavaScriptESLint(t *testing.T) {
 		t.Errorf("severities = %v", sev)
 	}
 }
+
+// TestRustGate runs only where cargo is installed (CI installs it).
+func TestRustGate(t *testing.T) {
+	g, root := gateFor(t, "rust-crate", "cargo", "rustfmt")
+	ctx := context.Background()
+	rep, err := g.Check(ctx, workspace.New(root), []string{"src"})
+	if err != nil || !rep.OK {
+		t.Fatalf("clean check: %+v %v", rep, err)
+	}
+	cs := replaceIn(t, root, "src/lib.rs", "self.title.is_empty()", "self.missing_field.is_empty()")
+	rep, err = g.Check(ctx, cs, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.OK || rep.Diagnostics[0].File != "src/lib.rs" || !strings.Contains(rep.Diagnostics[0].Message, "missing_field") {
+		t.Fatalf("report = %+v", rep)
+	}
+	if strings.Contains(tu.ReadFile(t, root, "src/lib.rs"), "missing_field") {
+		t.Fatal("real file changed")
+	}
+}
+
+// TestCSharpGate runs only where the .NET SDK is installed.
+func TestCSharpGate(t *testing.T) {
+	g, root := gateFor(t, "csharp-lib", "dotnet")
+	ctx := context.Background()
+	cs := replaceIn(t, root, "Catalog.cs", "return _books.TryGetValue(id, out var b) ? b : null;", "return Missing(id);")
+	rep, err := g.Check(ctx, cs, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.OK || rep.Diagnostics[0].File != "Catalog.cs" || !strings.Contains(rep.Diagnostics[0].Message, "CS0103") {
+		t.Fatalf("report = %+v", rep)
+	}
+}

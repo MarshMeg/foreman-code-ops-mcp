@@ -53,6 +53,15 @@ toolchain:
       when: {files: [eslint.config.js, eslint.config.mjs, eslint.config.cjs, eslint.config.ts, .eslintrc.json, .eslintrc.js, .eslintrc.cjs, .eslintrc.yml, .eslintrc]}
       run: [eslint, --format, json, "{files}"]
       parser: eslint-json
+  # TypeScript 7 serves LSP itself (tsc --lsp); older versions need typescript-language-server.
+  lsp:
+    - name: tsc
+      when: {contains: {node_modules/typescript/package.json: '"version": "7.'}}
+      run: [tsc, --lsp, --stdio]
+      language_ids: {.ts: typescript, .mts: typescript, .cts: typescript, .tsx: typescriptreact, .jsx: javascriptreact}
+    - name: typescript-language-server
+      run: [typescript-language-server, --stdio]
+      language_ids: {.ts: typescript, .mts: typescript, .cts: typescript, .tsx: typescriptreact, .jsx: javascriptreact}
   tests:
     - name: vitest
       when: {deps: [vitest]}

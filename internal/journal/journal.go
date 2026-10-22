@@ -14,18 +14,33 @@ import (
 
 // Entry is one journal record.
 type Entry struct {
-	Time       time.Time      `json:"time"`
-	Tool       string         `json:"tool"`
-	File       string         `json:"file,omitempty"`
-	Symbol     string         `json:"symbol,omitempty"`
-	Status     string         `json:"status"`
-	WrittenBy  string         `json:"written_by,omitempty"`
-	BuildFixes int            `json:"build_fixes,omitempty"`
-	Reviews    int            `json:"reviews,omitempty"`
-	Commit     string         `json:"commit,omitempty"`
-	DurationMS int64          `json:"duration_ms,omitempty"`
-	Error      string         `json:"error,omitempty"`
-	Extra      map[string]any `json:"extra,omitempty"`
+	Time       time.Time `json:"time"`
+	Tool       string    `json:"tool"`
+	File       string    `json:"file,omitempty"`
+	Symbol     string    `json:"symbol,omitempty"`
+	Status     string    `json:"status"`
+	WrittenBy  string    `json:"written_by,omitempty"`
+	BuildFixes int       `json:"build_fixes,omitempty"`
+	Reviews    int       `json:"reviews,omitempty"`
+	Fallback   int       `json:"fallback,omitempty"`
+	Lang       string    `json:"lang,omitempty"`
+	Mode       string    `json:"mode,omitempty"`
+	Commit     string    `json:"commit,omitempty"`
+	DurationMS int64     `json:"duration_ms,omitempty"`
+	Error      string    `json:"error,omitempty"`
+	// Generator and Validator are the token usage of each model in this operation.
+	Generator *Usage         `json:"generator,omitempty"`
+	Validator *Usage         `json:"validator,omitempty"`
+	Extra     map[string]any `json:"extra,omitempty"`
+}
+
+// Usage is the token usage and cost of one model.
+type Usage struct {
+	Model            string  `json:"model,omitempty"`
+	PromptTokens     int     `json:"prompt_tokens,omitempty"`
+	CompletionTokens int     `json:"completion_tokens,omitempty"`
+	CachedTokens     int     `json:"cached_tokens,omitempty"`
+	Cost             float64 `json:"cost,omitempty"`
 }
 
 // Journal appends entries to a writer. It is safe for concurrent use.

@@ -1,6 +1,8 @@
 package mcp
 
 import (
+	"bytes"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -96,7 +98,8 @@ func TestE2EUpsertSymbol(t *testing.T) {
 	dir := tu.RepoFromFixture(t, "../../testdata/go-layered")
 	llm := tu.NewFakeLLM(t, tu.Answer{Code: "// Count returns the number of books.\nfunc (s *BookService) Count(ctx context.Context) (int, error) {\n\treturn 0, nil\n}"})
 	llm.Slots = 2
-	cs := connectProject(t, dir, func(c *config.Config) {
+	var jbuf bytes.Buffer
+	cs := connectProjectWith(t, dir, journal.New(&jbuf), func(c *config.Config) {
 		c.Generator.BaseURL, c.Generator.Model, c.Validator.Provider = llm.URL, "m", "none"
 	})
 
@@ -109,6 +112,14 @@ func TestE2EUpsertSymbol(t *testing.T) {
 	}))
 	if out.Status != "applied" || out.Commit == "" || out.WrittenBy != "local" || !out.Tests.Ran || !strings.Contains(out.Diff, "+\treturn 0, nil") {
 		t.Fatalf("upsert = %+v", out)
+	}
+	var e journal.Entry
+	if err := json.Unmarshal([]byte(strings.SplitN(jbuf.String(), "\n", 2)[0]), &e); err != nil {
+		t.Fatal(err)
+	}
+	if e.Tool != "upsert_symbol" || e.Lang != "go" || e.Mode != "local" || e.Commit != out.Commit ||
+		e.Generator == nil || e.Generator.Model != "openai/m" || e.Generator.PromptTokens != 100 || e.Validator != nil {
+		t.Fatalf("journal entry %+v (generator %+v)", e, e.Generator)
 	}
 
 	st := decode[StatusOutput](t, call(t, cs, "status", map[string]any{}))

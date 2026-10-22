@@ -6,3 +6,4 @@ coverage.*
 # per-project runtime state when dogfooding
 .foreman/cache/
 __pycache__/
+node_modules/

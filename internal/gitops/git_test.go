@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 // isolateGit keeps the user's git config (signing, hooks, identity) out of tests.
@@ -201,5 +202,59 @@ func TestDirtyIgnoresStderrWarnings(t *testing.T) {
 	got, err := r.Dirty(ctx, []string{"missing/dir/x.go"})
 	if err != nil || len(got) != 0 {
 		t.Fatalf("dirty = %q, %v", got, err)
+	}
+}
+
+func TestForemanCommits(t *testing.T) {
+	dir := newRepo(t)
+	r, err := Open(context.Background(), dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	write(t, dir, "a.go", "a2\n")
+	if _, err := r.Commit(context.Background(), []string{"a.go"}, Message{Subject: "upsert a", Trailers: []Trailer{
+		{TrailerWrittenBy, "local (qwen)"}, {TrailerAttempts, "build=1 review=0"}}}); err != nil {
+		t.Fatal(err)
+	}
+	write(t, dir, "b.go", "b2\n")
+	sh(t, dir, "commit", "-q", "-am", "user change\n\nForeman-Note: not a foreman commit")
+	write(t, dir, "sub/c.go", "c2\n")
+	if _, err := r.Commit(context.Background(), []string{"sub/c.go"}, Message{Subject: "upsert c", Trailers: []Trailer{
+		{TrailerWrittenBy, "validator (openrouter/glm)"}, {TrailerReviewedBy, "openrouter/glm"}, {TrailerAttempts, "build=3 review=1 fallback=1"}}}); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := r.ForemanCommits(context.Background(), time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].Subject != "foreman: upsert c" || got[1].Trailers[TrailerAttempts] != "build=1 review=0" ||
+		got[0].Trailers[TrailerReviewedBy] != "openrouter/glm" || got[0].Time.IsZero() {
+		t.Fatalf("got %+v", got)
+	}
+
+	// A subdirectory project sees only its own commits.
+	sub, err := Open(context.Background(), filepath.Join(dir, "sub"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := sub.ForemanCommits(context.Background(), time.Time{}); err != nil || len(got) != 1 {
+		t.Fatalf("sub: %+v, %v", got, err)
+	}
+	if got, err := r.ForemanCommits(context.Background(), time.Now().Add(time.Hour)); err != nil || len(got) != 0 {
+		t.Fatalf("since future: %+v, %v", got, err)
+	}
+}
+
+func TestForemanCommitsEmptyRepo(t *testing.T) {
+	isolateGit(t)
+	dir := t.TempDir()
+	sh(t, dir, "init", "-q")
+	r, err := Open(context.Background(), dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := r.ForemanCommits(context.Background(), time.Time{}); err != nil || got != nil {
+		t.Fatalf("got %+v, %v", got, err)
 	}
 }

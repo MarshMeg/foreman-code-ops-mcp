@@ -4,6 +4,7 @@ import (
 	"github.com/MarshMeg/foreman-code-ops/internal/config"
 	"github.com/MarshMeg/foreman-code-ops/internal/gate"
 	"github.com/MarshMeg/foreman-code-ops/internal/links"
+	"github.com/MarshMeg/foreman-code-ops/internal/ops"
 )
 
 // SymbolRef points to a symbol whose source the server resolves itself.
@@ -57,7 +58,8 @@ type UpsertSymbolOutput struct {
 	LastCode    string       `json:"last_code,omitempty" jsonschema:"last candidate when status is failed"`
 	Warnings    []string     `json:"warnings,omitempty"`
 
-	file string // for the journal
+	file string           // for the journal
+	res  ops.UpsertResult // for the journal
 }
 
 // GetSymbolOutput is the result of get_symbol.
@@ -141,8 +143,14 @@ type StatusOutput struct {
 	Validator ValidatorStatus `json:"validator"`
 	Limits    config.Limits   `json:"limits"`
 	Graph     GraphStatus     `json:"graph"`
+	LSP       LSPStatus       `json:"lsp"`
 	Queue     QueueStatus     `json:"queue"`
 	Warnings  []string        `json:"warnings"`
+}
+
+type LSPStatus struct {
+	Enabled bool `json:"enabled"`
+	Running int  `json:"running" jsonschema:"language servers currently running"`
 }
 
 type GeneratorStatus struct {

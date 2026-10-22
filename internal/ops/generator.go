@@ -3,6 +3,7 @@ package ops
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -37,6 +38,9 @@ func newGenerator(cfg config.Config) *generator {
 		Temperature: cfg.Generator.Temperature,
 		Structured:  cfg.Generator.Structured,
 		Timeout:     cfg.Limits.GenerateTimeout.D(),
+
+		AgentCommand: strings.Fields(cfg.AgentSDK.Command),
+		Effort:       cfg.AgentSDK.Effort,
 	})
 	if g.err != nil {
 		g.err = fmt.Errorf("generator: %w", g.err)
@@ -127,6 +131,9 @@ func newValidator(cfg config.Config) *validator {
 		APIKeyEnv:  cfg.Validator.APIKeyEnv,
 		Structured: providers.StructuredJSONSchema,
 		Timeout:    cfg.Validator.Timeout.D(),
+
+		AgentCommand: strings.Fields(cfg.AgentSDK.Command),
+		Effort:       cfg.AgentSDK.Effort,
 	})
 	if v.err != nil {
 		v.err = fmt.Errorf("validator unavailable, code is not reviewed: %w", v.err)

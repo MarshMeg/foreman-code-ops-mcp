@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path"
@@ -21,7 +22,9 @@ import (
 	"github.com/MarshMeg/foreman-code-ops/internal/graph"
 	"github.com/MarshMeg/foreman-code-ops/internal/lang"
 	"github.com/MarshMeg/foreman-code-ops/internal/links"
+	"github.com/MarshMeg/foreman-code-ops/internal/lsp"
 	"github.com/MarshMeg/foreman-code-ops/internal/project"
+	"github.com/MarshMeg/foreman-code-ops/internal/providers"
 	"github.com/MarshMeg/foreman-code-ops/internal/workspace"
 )
 
@@ -56,6 +59,7 @@ type Ops struct {
 	val   *validator
 	graph graph.Provider
 	links *links.Discoverer
+	lsp   *lsp.Pool // nil unless lsp.enabled
 	cfg   config.Config
 	log   *slog.Logger
 
@@ -75,8 +79,33 @@ func New(proj *project.Project, reg *lang.Registry, cfg config.Config, log *slog
 	if err != nil {
 		return nil, err
 	}
-	return &Ops{proj: proj, reg: reg, gate: g, gen: newGenerator(cfg), val: newValidator(cfg),
-		graph: graph.New(cfg.Graph, proj.Root, log), links: links.New(proj, reg), cfg: cfg, log: log}, nil
+	o := &Ops{proj: proj, reg: reg, gate: g, gen: newGenerator(cfg), val: newValidator(cfg),
+		graph: graph.New(cfg.Graph, proj.Root, log), links: links.New(proj, reg), cfg: cfg, log: log}
+	if cfg.LSP.Enabled {
+		o.lsp = lsp.NewPool(cfg.LSP.IdleTimeout.D())
+		g.SetLSP(o.lsp)
+	}
+	return o, nil
+}
+
+// Close stops the language servers and the Agent SDK sidecars.
+func (o *Ops) Close() {
+	if o.lsp != nil {
+		o.lsp.Close()
+	}
+	for _, p := range []providers.Provider{o.gen.p, o.val.p} {
+		if c, ok := p.(io.Closer); ok {
+			c.Close()
+		}
+	}
+}
+
+// LSPStatus reports whether language servers are enabled and how many are running.
+func (o *Ops) LSPStatus() (enabled bool, running int) {
+	if o.lsp == nil {
+		return false, 0
+	}
+	return true, o.lsp.Running()
 }
 
 // Project returns the project.

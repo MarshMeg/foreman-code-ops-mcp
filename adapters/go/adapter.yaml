@@ -30,6 +30,11 @@ toolchain:
     - name: go vet
       run: [go, vet, -overlay, "{overlay}", "{packages}"]
       pattern: '^(?:vet: )?(?P<file>[^\s:#][^:]*\.go):(?P<line>\d+)(?::(?P<col>\d+))?: (?P<message>.*)$'
+  # With lsp.enabled: a warm gopls checks changed files first (see docs/adapters.md).
+  lsp:
+    - name: gopls
+      run: [gopls]
+      language_ids: {.go: go}
   tests:
     - name: go test
       run: [go, test, -overlay, "{overlay}", "{packages}"]

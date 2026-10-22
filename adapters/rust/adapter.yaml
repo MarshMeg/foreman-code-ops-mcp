@@ -1,0 +1,56 @@
+# Rust (experimental): symbols and imports are tested; the toolchain is not yet verified
+# against real projects.
+lang: rust
+grammar: rust
+extensions: [.rs]
+symbols_query: symbols.scm
+imports_query: imports.scm
+prompt: prompt.md
+body_fields:
+  function: body
+  method: body
+  interface: body
+  module: body
+# Doc comments and attributes (#[derive], #[test]) sit above the item as siblings.
+leading_comments: [line_comment, block_comment, attribute_item]
+# Methods live in impl blocks. A type without one gets its first methods by rewriting the type
+# (struct + impl) or with an anchor.
+nested_members: true
+import_preamble: [line_comment, block_comment, inner_attribute_item]
+new_file:
+  template: ""
+strip:
+  - '(?ms)^(?:pub(?:\([^)]*\))?\s+)?use\s+[^;]*;[ \t]*\n?'
+  - '(?m)^extern\s+crate\s+[^;]*;[ \t]*\n?'
+
+toolchain:
+  root_markers: [Cargo.toml]
+  overlay: false
+  package_pattern: "."
+  recursive_pattern: "."
+  all_packages: "."
+  insert_imports: {name: insert imports, builtin: insert-imports}
+  fix:
+    - name: rustfmt
+      optional: true
+      run: [rustfmt, --edition, "2021", --emit, stdout]
+      pattern: '^error: (?P<message>.*)$'
+  check:
+    # The whole crate (or workspace) is checked, so broken callers are caught. The target
+    # directory lives in the cache, so builds stay incremental and the project's target/ is untouched.
+    - name: cargo check
+      run: [cargo, check, --quiet, --all-targets, --message-format=short, --target-dir, "{cache}/target"]
+      pattern: '^(?P<file>[^:\s][^:]*\.rs):(?P<line>\d+):(?P<col>\d+): (?P<severity>error|warning)(?:\[\w+\])?: (?P<message>.*)$'
+      only_matches: true
+      scope: all
+  # Not yet tried: rust-analyzer reports cargo check results only after a save, so only its
+  # own (syntax and type inference) diagnostics show up for unsaved candidates.
+  lsp:
+    - name: rust-analyzer
+      run: [rust-analyzer]
+      language_ids: {.rs: rust}
+      settle_ms: 1500
+  tests:
+    - name: cargo test
+      run: [cargo, test, --quiet, --target-dir, "{cache}/target"]
+      filter: ["{filter}"]

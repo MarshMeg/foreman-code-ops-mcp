@@ -168,6 +168,10 @@ var settings = []setting{
 	{"graph.command", "code graph executable", func(c *Config) any { return &c.Graph.Command }},
 	{"graph.project", "codebase-memory project name", func(c *Config) any { return &c.Graph.Project }},
 	{"graph.auto_index", "the graph reindexes itself; skip reindex after commits", func(c *Config) any { return &c.Graph.AutoIndex }},
+	{"lsp.enabled", "check candidates with language servers before the check commands", func(c *Config) any { return &c.LSP.Enabled }},
+	{"lsp.idle_timeout", "stop language servers unused for this long", func(c *Config) any { return &c.LSP.IdleTimeout }},
+	{"agent_sdk.command", "command that starts the Agent SDK sidecar", func(c *Config) any { return &c.AgentSDK.Command }},
+	{"agent_sdk.effort", "Agent SDK effort: low|medium|high|xhigh|max", func(c *Config) any { return &c.AgentSDK.Effort }},
 	{"log.level", "log level: debug|info|warn|error", func(c *Config) any { return &c.Log.Level }},
 	{"log.file", "also write logs to this file", func(c *Config) any { return &c.Log.File }},
 }

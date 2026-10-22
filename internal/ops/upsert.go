@@ -55,6 +55,17 @@ type UpsertResult struct {
 	Tests       *gate.TestResult
 	LastCode    string
 	Warnings    []string
+	// For the journal: fallback attempts, language, mode and model usage.
+	FallbackAttempts int
+	Lang, Mode       string
+	Generator        Usage
+	Validator        Usage
+}
+
+// Usage is the token usage of one model in an operation.
+type Usage struct {
+	Model string
+	providers.Usage
 }
 
 // Upsert writes a symbol with the generator, checks it with the gate and commits it.
@@ -133,22 +144,31 @@ func (o *Ops) Upsert(ctx context.Context, req UpsertRequest) (UpsertResult, erro
 	task := pipeline.Task{Direct: direct, File: rel, Symbol: req.Symbol, Kind: req.Kind, Spec: req.Spec,
 		Interface: req.Interface, Anchor: req.Anchor, Package: req.Package}
 
+	mode := "local"
+	if direct {
+		mode = "direct"
+	}
 	out, err := pipeline.Run(ctx, env, task)
 	if errors.Is(err, budget.ErrContextTooLarge) {
-		return UpsertResult{Status: StatusFailed, Symbol: req.Symbol, WrittenBy: "none", Message: err.Error()}, nil
+		return UpsertResult{Status: StatusFailed, Symbol: req.Symbol, WrittenBy: "none", Message: err.Error(), Lang: a.Lang(), Mode: mode}, nil
 	}
 	if err != nil {
 		return UpsertResult{}, err
 	}
 	res := UpsertResult{
-		Symbol:      req.Symbol,
-		BuildFixes:  out.BuildFixes,
-		Reviews:     out.Reviews,
-		Diagnostics: out.Diagnostics,
-		WrittenBy:   out.WrittenBy,
-		ReviewedBy:  out.ReviewedBy,
-		MinorNotes:  out.MinorNotes,
-		Warnings:    out.Warnings,
+		FallbackAttempts: out.FallbackAttempts,
+		Lang:             a.Lang(),
+		Mode:             mode,
+		Generator:        usageOf(o.gen.p, out.Usage),
+		Validator:        usageOf(o.val.p, out.ValidatorUsage),
+		Symbol:           req.Symbol,
+		BuildFixes:       out.BuildFixes,
+		Reviews:          out.Reviews,
+		Diagnostics:      out.Diagnostics,
+		WrittenBy:        out.WrittenBy,
+		ReviewedBy:       out.ReviewedBy,
+		MinorNotes:       out.MinorNotes,
+		Warnings:         out.Warnings,
 	}
 	if o.val.err != nil {
 		res.Warnings = append(res.Warnings, o.val.err.Error())
@@ -267,6 +287,13 @@ func (o *Ops) resolveContext(refs []Ref) ([]pipeline.Snippet, error) {
 		out = append(out, pipeline.Snippet{Ref: info.File + ":" + info.Symbol.Name, Source: info.Source})
 	}
 	return out, errors.Join(errs...)
+}
+
+func usageOf(p providers.Provider, u providers.Usage) Usage {
+	if p == nil {
+		return Usage{Usage: u}
+	}
+	return Usage{Model: p.Name(), Usage: u}
 }
 
 func trailers(out pipeline.Outcome, gen, val providers.Provider) []gitops.Trailer {

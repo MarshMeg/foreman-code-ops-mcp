@@ -3,7 +3,10 @@ package lang
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 // Toolchain describes, as data, how the gate fixes, checks and tests files of a language.
@@ -19,7 +22,8 @@ import (
 //	{cache}     a stable per-root cache directory (incremental builds)
 //	{filter}    the test name filter (test step only)
 type Toolchain struct {
-	// RootMarkers locate the directory commands run in (go.mod, pyproject.toml, tsconfig.json).
+	// RootMarkers locate the directory commands run in (go.mod, pyproject.toml, tsconfig.json);
+	// globs are allowed (*.csproj).
 	RootMarkers []string `yaml:"root_markers"`
 	// BinDirs are directories under the root searched for commands before PATH
 	// (node_modules/.bin, .venv/bin).
@@ -42,6 +46,23 @@ type Toolchain struct {
 	Check []Step `yaml:"check"`
 	// Tests run on request; the first applicable entry is used.
 	Tests []TestStep `yaml:"tests"`
+	// LSP lists language servers that give fast diagnostics for candidate files before the
+	// check steps (when lsp.enabled). The first that applies and starts is used.
+	LSP []LSPServer `yaml:"lsp"`
+}
+
+// LSPServer is a language server used for diagnostics.
+type LSPServer struct {
+	Name string   `yaml:"name"`
+	Run  []string `yaml:"run"`
+	// LanguageIDs maps file extensions to LSP language ids (.tsx: typescriptreact).
+	LanguageIDs map[string]string `yaml:"language_ids"`
+	// InitOptions are sent as initializationOptions.
+	InitOptions map[string]any `yaml:"init_options"`
+	// SettleMS is how long to wait for further pushed diagnostics after the first (servers
+	// without pull diagnostics); default 500.
+	SettleMS int       `yaml:"settle_ms"`
+	When     Condition `yaml:"when"`
 }
 
 // Condition restricts a step to projects that use a tool.
@@ -131,6 +152,17 @@ func (t Toolchain) Validate() error {
 			errs = append(errs, fmt.Errorf("tests[%d]: run is required", i))
 		}
 	}
+	for i, l := range t.LSP {
+		if len(l.Run) == 0 || l.Name == "" {
+			errs = append(errs, fmt.Errorf("lsp[%d]: name and run are required", i))
+		}
+		if len(l.LanguageIDs) == 0 {
+			errs = append(errs, fmt.Errorf("lsp %q: language_ids is required", l.Name))
+		}
+		if l.SettleMS < 0 {
+			errs = append(errs, fmt.Errorf("lsp %q: settle_ms must be >= 0", l.Name))
+		}
+	}
 	return errors.Join(errs...)
 }
 
@@ -142,4 +174,20 @@ func (t Toolchain) Steps() []Step {
 	}
 	out = append(out, t.Fix...)
 	return append(out, t.Check...)
+}
+
+// HasMarker reports whether dir contains a file matching one of markers (names or globs).
+func HasMarker(dir string, markers []string) bool {
+	for _, m := range markers {
+		if strings.ContainsAny(m, "*?[") {
+			if found, _ := filepath.Glob(filepath.Join(dir, m)); len(found) > 0 {
+				return true
+			}
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(dir, m)); err == nil {
+			return true
+		}
+	}
+	return false
 }

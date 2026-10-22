@@ -147,10 +147,8 @@ func (g *Gate) rootFor(a lang.Adapter, rel string) string {
 func (g *Gate) markerRoot(a lang.Adapter, dir string) (string, bool) {
 	markers := a.Toolchain().RootMarkers
 	for d := dir; ; d = path.Dir(d) {
-		for _, m := range markers {
-			if _, err := os.Stat(filepath.Join(g.proj.Root, filepath.FromSlash(d), m)); err == nil {
-				return d, true
-			}
+		if g.hasMarker(d, markers) {
+			return d, true
 		}
 		if d == "." || d == "/" {
 			return "", false
@@ -196,13 +194,9 @@ func (g *Gate) dirHasLangFiles(cs *workspace.Changeset, a lang.Adapter, dir stri
 	return false
 }
 
+// hasMarker reports whether dir holds one of markers; a marker may be a glob (*.csproj).
 func (g *Gate) hasMarker(dir string, markers []string) bool {
-	for _, m := range markers {
-		if _, err := os.Stat(filepath.Join(g.proj.Root, filepath.FromSlash(dir), m)); err == nil {
-			return true
-		}
-	}
-	return false
+	return lang.HasMarker(filepath.Join(g.proj.Root, filepath.FromSlash(dir)), markers)
 }
 
 func severity(s lang.Step) string {
