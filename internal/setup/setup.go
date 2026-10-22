@@ -194,6 +194,27 @@ func mcpEntry(o Options, rep *Report) error {
 	return nil
 }
 
+// enableMCP approves the project's foreman server in .claude/settings.json, so Claude Code starts it without asking.
+func enableMCP(o Options, rep *Report) error {
+	path := filepath.Join(o.Root, ".claude", "settings.json")
+	settings, err := readJSON(path)
+	if err != nil {
+		return err
+	}
+	list, _ := settings["enabledMcpjsonServers"].([]any)
+	if slices.Contains(list, any("foreman")) {
+		rep.add("kept %s (server foreman already enabled)", rel(o.Root, path))
+		return nil
+	}
+	list = append(list, "foreman")
+	settings["enabledMcpjsonServers"] = list
+	if err := writeJSON(path, settings); err != nil {
+		return err
+	}
+	rep.add("enabled MCP server foreman in %s", rel(o.Root, path))
+	return nil
+}
+
 func gitignore(o Options, rep *Report) error {
 	const line = ".foreman/cache/"
 	path := filepath.Join(o.Root, ".gitignore")
