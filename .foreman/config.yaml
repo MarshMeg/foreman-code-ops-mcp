@@ -1,5 +1,6 @@
 # Project settings for foreman-code-ops; see docs/config.md.
-# API keys never go here: the validator reads ANTHROPIC_API_KEY from the environment.
+# API keys never go here. The validator runs through the Claude Agent SDK sidecar and uses the
+# Claude Code login (claude.ai subscription); a set ANTHROPIC_API_KEY would take precedence.
 
 generator:
   provider: openai
@@ -9,5 +10,8 @@ generator:
   slot_ctx: 53248         # llama-server -c 212992 / -np 4
 
 validator:
-  provider: anthropic
+  provider: agent-sdk
   model: claude-sonnet-5-5
+
+agent_sdk:
+  command: foreman-agent-sdk   # pnpm add -g the sidecar package, see sidecar/agent-sdk
