@@ -88,6 +88,7 @@ func (g *graphify) Build(ctx context.Context) error {
 	if _, err := exec.LookPath(g.bin); err != nil {
 		return fmt.Errorf("%w: %s not found in PATH (install it: uv tool install graphifyy)", ErrUnavailable, g.bin)
 	}
+	g.excludeOutput(ctx)
 	// "update" builds graph.json and GRAPH_REPORT.md from scratch when they are missing.
 	_, _, err := g.cli(ctx, "update", ".")
 	return err
