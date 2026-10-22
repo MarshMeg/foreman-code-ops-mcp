@@ -6,8 +6,7 @@ generator:
   base_url: http://localhost:8080/v1
   model: qwythos.9b.q4_k_m.mtp.gguf
   slots: 4                # llama-server -np 4
-  slot_ctx: 12288         # llama-server -c 49152 / -np 4
-  output_reserve: 4096    # small slots: keep 8k for the prompt
+  slot_ctx: 53248         # llama-server -c 212992 / -np 4
 
 validator:
   provider: anthropic
