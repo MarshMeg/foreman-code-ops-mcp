@@ -1,5 +1,10 @@
 package mcp
 
+import (
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/graph"
+	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
 // GraphOutput is the result of the graph_* tools.
 type GraphOutput struct {
 	Text string `json:"text" jsonschema:"the code graph's answer"`
@@ -32,4 +37,17 @@ type GraphQueryInput struct {
 	Context  []string `json:"context,omitempty" jsonschema:"edge-context filter, e.g. call, field, parameter_type"`
 	DFS      bool     `json:"dfs,omitempty" jsonschema:"depth-first instead of breadth-first traversal"`
 	Budget   int      `json:"budget,omitempty" jsonschema:"output cap in tokens (default 2000)"`
+}
+
+// explore runs a code graph question for the graph_* tools.
+func (h *handlers) explore(fn func(graph.Explorer) (string, error)) (*sdk.CallToolResult, GraphOutput, error) {
+	e, err := h.d.Ops.Explorer()
+	if err != nil {
+		return nil, GraphOutput{}, err
+	}
+	text, err := fn(e)
+	if err != nil {
+		return nil, GraphOutput{}, err
+	}
+	return nil, GraphOutput{Text: text}, nil
 }
