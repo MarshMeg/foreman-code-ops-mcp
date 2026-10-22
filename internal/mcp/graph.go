@@ -5,6 +5,13 @@ type GraphOutput struct {
 	Text string `json:"text" jsonschema:"the code graph's answer"`
 }
 
+// GraphPathInput is the input of graph_path.
+type GraphPathInput struct {
+	From       string `json:"from" jsonschema:"start node: symbol, file path or node id"`
+	To         string `json:"to" jsonschema:"end node"`
+	Undirected bool   `json:"undirected,omitempty" jsonschema:"ignore edge direction"`
+}
+
 // GraphNodeInput is the input of graph_node.
 type GraphNodeInput struct {
 	Name string `json:"name" jsonschema:"symbol, file path or node id; use path::symbol when a name is ambiguous"`
