@@ -185,11 +185,15 @@ func (g *graphify) headTime(ctx context.Context) time.Time {
 	return time.Unix(sec, 0)
 }
 
+// Available reports whether the graph can be used and, if not, how to fix it.
 func (g *graphify) Available(context.Context) (bool, string) {
-	if _, err := os.Stat(g.path()); err != nil {
-		return false, "graphify-out/graph.json not found; run graphify on the project"
+	if _, err := os.Stat(g.path()); err == nil {
+		return true, ""
 	}
-	return true, ""
+	if _, err := exec.LookPath(g.bin); err != nil {
+		return false, g.bin + " not found in PATH; install it with: uv tool install graphifyy"
+	}
+	return false, "graphify-out/graph.json not built yet; foreman builds it on the first graph query, or run: graphify update ."
 }
 
 // Reindex runs `graphify update .` in the background unless graphify's own git hook rebuilds the
