@@ -3,7 +3,7 @@
 All notable changes are listed here. Versions follow [semantic versioning](https://semver.org);
 the release workflow takes the notes for a tag from its section.
 
-## [Unreleased]
+## [0.1.2]
 
 Installation is now global once and per project after that.
 

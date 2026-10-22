@@ -119,7 +119,7 @@ starts a new one. Node is only needed when this provider is used.
 
 ```bash
 # the sidecar package is attached to every release
-pnpm add -g https://github.com/MarshMeg/foreman-code-ops-mcp/releases/download/v0.1.1/foreman-agent-sdk-0.1.1.tgz
+pnpm add -g https://github.com/MarshMeg/foreman-code-ops-mcp/releases/download/v0.1.2/foreman-agent-sdk-0.1.2.tgz
 export ANTHROPIC_API_KEY=...           # or CLAUDE_CODE_USE_BEDROCK / _VERTEX / _FOUNDRY with their credentials
 ```
 

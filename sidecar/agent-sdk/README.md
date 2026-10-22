@@ -6,11 +6,11 @@ requests over stdin/stdout, one JSON object per line.
 
 ```bash
 # from a release (installs the foreman-agent-sdk command)
-pnpm add -g https://github.com/MarshMeg/foreman-code-ops-mcp/releases/download/v0.1.1/foreman-agent-sdk-0.1.1.tgz
+pnpm add -g https://github.com/MarshMeg/foreman-code-ops-mcp/releases/download/v0.1.2/foreman-agent-sdk-0.1.2.tgz
 
 # from a checkout
 pnpm --dir sidecar/agent-sdk pack --pack-destination /tmp
-pnpm add -g /tmp/foreman-agent-sdk-0.1.1.tgz
+pnpm add -g /tmp/foreman-agent-sdk-0.1.2.tgz
 ```
 
 `pnpm add -g ./sidecar/agent-sdk` only links the directory without installing its
