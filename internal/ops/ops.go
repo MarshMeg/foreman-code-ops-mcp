@@ -447,3 +447,12 @@ func (o *Ops) GraphStatus(ctx context.Context) (name string, available bool, rea
 	ok, why := o.graph.Available(ctx)
 	return o.graph.Name(), ok, why
 }
+
+// Explorer returns the code graph's query interface (graphify only).
+func (o *Ops) Explorer() (graph.Explorer, error) {
+	e, ok := o.graph.(graph.Explorer)
+	if !ok {
+		return nil, fmt.Errorf("the %s code graph cannot answer queries; set graph.provider: graphify, or use the graph's own MCP server", o.graph.Name())
+	}
+	return e, nil
+}
