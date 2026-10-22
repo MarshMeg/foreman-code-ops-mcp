@@ -60,6 +60,14 @@ class that already has a member — otherwise pass `anchor`, or upsert the whole
 - `warnings` mention dropped context (the generator slot was too small) or an unavailable
   validator.
 
+## Monorepos: links between services
+
+If `.foreman/workspace.yaml` declares several services, run `discover_links` once and commit
+it; foreman keeps `.foreman/links.json` current afterwards. Before changing an HTTP handler, a
+DTO or a client call, call `get_links` for it, and change both sides: pass the other side as
+`context` (a frontend hook gets the backend handler and its response type). `delete_symbol`
+refuses to remove a handler that another service calls.
+
 ## Other tools
 
 - `get_symbol {file, symbol}` — source, signature and lines of one symbol.

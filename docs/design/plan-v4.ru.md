@@ -606,12 +606,13 @@ Generic-адаптер реализует этот интерфейс по YAML.
 - [x] `init` запрещает Edit только для языков проекта; `.mjs`/`.cjs`-конфиги остаются редактируемыми
 
 ### Этап 6a — связи между сервисами (4–5 дней)
-- [ ] Детекторы HTTP-роутов и вызовов для Go, Python, TS
-- [ ] OpenAPI/proto как источник `contract`-связей
-- [ ] docker-compose/.env для base URL
-- [ ] `discover_links`, `get_links`, `.foreman/links.json`, инкрементальный пересчёт
-- [ ] Межсервисный `context` в `upsert_symbol`, предупреждения в `delete_symbol`
-- [ ] E2E: `testdata/monorepo` (Go-бэкенд + TSX-фронт): эндпоинт и хук `useBooks`
+- [x] Детекторы HTTP-роутов и вызовов для Go, Python, TS (с префиксами роутеров, в том числе между файлами)
+- [x] OpenAPI/proto как источник `contract`-связей
+- [x] docker-compose/.env для base URL (хост → сервис, путь base URL → префикс вызова)
+- [x] `discover_links`, `get_links`, `.foreman/links.json`; пересчёт при каждом коммите foreman — в том же коммите (полное пересканирование, а не инкремент: регулярки дешёвые)
+- [x] Межсервисный `context` в `upsert_symbol`, отказ в `delete_symbol` для обработчиков с вызовами из других сервисов
+- [x] E2E: `testdata/monorepo` (Go-бэкенд + TSX-фронт + Python-воркер): хуки `useBooks`/`useBook`, новый роут
+- [ ] Детектор сообщений (Kafka/NATS/RabbitMQ/Redis) из таблицы §11a — не сделан
 
 ### Этап 7 — Agent SDK и улучшения
 - [ ] Sidecar `agent-sdk` и провайдер

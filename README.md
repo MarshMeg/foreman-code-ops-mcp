@@ -15,7 +15,7 @@ Claude calls `upsert_symbol` instead of `Edit`/`Write`; each successful call is 
 > **Status: early development (stage 6).** Go, Python, TypeScript/JavaScript and TSX/JSX work end
 > to end: generation fitted to the slot, gate and fix loop, review and fallback by a cloud
 > validator, commits with trailers, style guide, code graph integration and the Claude Code
-> plugin. Cross-service links are next. See the
+> plugin, and links between the services of a monorepo. Agent SDK, LSP diagnostics and stats are next. See the
 > [design plan](docs/design/plan-v4.ru.md) (Russian) for the roadmap.
 
 ## Supported
@@ -84,7 +84,7 @@ foreman-code-ops config --project .
 
 prints the effective configuration.
 
-Docs: [providers](docs/providers.md), [code graph](docs/graph.md), [adapters](docs/adapters.md).
+Docs: [providers](docs/providers.md), [code graph](docs/graph.md), [adapters](docs/adapters.md), [links](docs/links.md).
 
 A local generator with three 64k slots:
 
@@ -103,6 +103,7 @@ llama-server -m model.gguf -c 196608 -np 3 --port 8080
 | `check` | run the gate without changes |
 | `run_tests` | run tests on request |
 | `style_get` / `style_set` | read / update `.foreman/style.md` (whole file or one section) |
+| `discover_links` / `get_links` | map HTTP/gRPC calls between services ([docs/links.md](docs/links.md)) |
 | `status` | providers, slots, queue, graph, warnings |
 
 ## License

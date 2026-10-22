@@ -1,0 +1,15 @@
+services:
+  - name: backend
+    root: backend
+    lang: go
+    exposes:
+      openapi: backend/api/openapi.yaml
+  - name: frontend
+    root: frontend
+    lang: typescript
+    consumes:
+      - service: backend
+        base_url_env: VITE_API_URL
+  - name: worker
+    root: worker
+    lang: python

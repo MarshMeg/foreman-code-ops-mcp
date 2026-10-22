@@ -3,6 +3,7 @@ package mcp
 import (
 	"github.com/MarshMeg/foreman-code-ops/internal/config"
 	"github.com/MarshMeg/foreman-code-ops/internal/gate"
+	"github.com/MarshMeg/foreman-code-ops/internal/links"
 )
 
 // SymbolRef points to a symbol whose source the server resolves itself.
@@ -167,4 +168,28 @@ type GraphStatus struct {
 type QueueStatus struct {
 	Running int `json:"running"`
 	Waiting int `json:"waiting"`
+}
+
+// DiscoverLinksOutput is the result of discover_links.
+type DiscoverLinksOutput struct {
+	Status   string   `json:"status" jsonschema:"applied, unchanged, refused or failed"`
+	Message  string   `json:"message,omitempty"`
+	Commit   string   `json:"commit,omitempty"`
+	Services []string `json:"services"`
+	Routes   int      `json:"routes"`
+	Calls    int      `json:"calls"`
+	Links    []string `json:"links" jsonschema:"caller → METHOD path → handler [confidence]"`
+	Unlinked []string `json:"unlinked,omitempty" jsonschema:"calls that matched no route"`
+}
+
+// GetLinksInput is the input of get_links.
+type GetLinksInput struct {
+	Service string `json:"service,omitempty" jsonschema:"service name from .foreman/workspace.yaml"`
+	File    string `json:"file,omitempty" jsonschema:"project-relative file"`
+	Symbol  string `json:"symbol,omitempty" jsonschema:"symbol name, e.g. BookHandler.List or useBooks"`
+}
+
+// GetLinksOutput is the result of get_links.
+type GetLinksOutput struct {
+	Links []links.Link `json:"links"`
 }

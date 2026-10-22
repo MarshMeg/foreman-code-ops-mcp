@@ -13,6 +13,7 @@ import (
 
 	"github.com/MarshMeg/foreman-code-ops/internal/config"
 	"github.com/MarshMeg/foreman-code-ops/internal/journal"
+	"github.com/MarshMeg/foreman-code-ops/internal/links"
 	"github.com/MarshMeg/foreman-code-ops/internal/ops"
 )
 
@@ -97,6 +98,18 @@ func NewServer(d Deps) *sdk.Server {
 		Description: "Create or update .foreman/style.md (the whole file, or one '## Section' which is replaced or appended) and commit. " +
 			"Write it in English. Language sections are named after the language (## Go, ## Python, ## TypeScript); the generator sees the common part and its language's section.",
 	}, h.styleSet)
+
+	add(h, s, &sdk.Tool{
+		Name: "discover_links",
+		Description: "Scan all services for HTTP routes, client calls, OpenAPI/proto contracts and base URLs (docker-compose, .env), " +
+			"link calls to the routes they reach, write .foreman/links.json and commit it. Afterwards foreman keeps the file current on every change.",
+	}, h.discoverLinks)
+
+	add(h, s, &sdk.Tool{
+		Name: "get_links",
+		Description: "Cross-service links touching a service, file or symbol, e.g. frontend.useBooks → GET /api/books → backend.BookHandler.List. " +
+			"Use it before changing a handler or a client call, and pass the other side as upsert_symbol context.",
+	}, h.getLinks)
 
 	add(h, s, &sdk.Tool{
 		Name:        "status",
@@ -297,4 +310,38 @@ func (h *handlers) upsertSymbol(ctx context.Context, _ *sdk.CallToolRequest, in 
 func (o UpsertSymbolOutput) journal(e *journal.Entry) {
 	e.File, e.Symbol, e.Status, e.WrittenBy = o.file, o.Symbol, o.Status, o.WrittenBy
 	e.BuildFixes, e.Reviews, e.Commit = o.Attempts.BuildFixes, o.Attempts.Reviews, o.Commit
+}
+
+func (h *handlers) discoverLinks(ctx context.Context, _ *sdk.CallToolRequest, _ struct{}) (*sdk.CallToolResult, DiscoverLinksOutput, error) {
+	r, err := h.d.Ops.DiscoverLinks(ctx)
+	if err != nil {
+		return nil, DiscoverLinksOutput{}, err
+	}
+	out := DiscoverLinksOutput{Status: r.Status, Message: r.Message, Commit: r.Commit, Services: r.Map.Services(),
+		Routes: len(r.Map.Routes), Calls: len(r.Map.Calls), Links: []string{}}
+	linked := map[string]bool{}
+	for _, l := range r.Map.Links {
+		out.Links = append(out.Links, l.String())
+		linked[fmt.Sprintf("%s:%d", l.From.File, l.From.Line)] = true
+	}
+	for _, c := range r.Map.Calls {
+		if !linked[fmt.Sprintf("%s:%d", c.File, c.Line)] {
+			out.Unlinked = append(out.Unlinked, fmt.Sprintf("%s:%d %s %s (%s)", c.File, c.Line, c.Method, c.Path, c.Client))
+		}
+	}
+	if out.Services == nil {
+		out.Services = []string{}
+	}
+	return nil, out, nil
+}
+
+func (h *handlers) getLinks(_ context.Context, _ *sdk.CallToolRequest, in GetLinksInput) (*sdk.CallToolResult, GetLinksOutput, error) {
+	ls, err := h.d.Ops.GetLinks(in.Service, in.File, in.Symbol)
+	if err != nil {
+		return nil, GetLinksOutput{}, err
+	}
+	if ls == nil {
+		ls = []links.Link{}
+	}
+	return nil, GetLinksOutput{Links: ls}, nil
 }

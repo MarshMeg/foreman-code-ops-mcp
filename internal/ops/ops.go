@@ -20,6 +20,7 @@ import (
 	"github.com/MarshMeg/foreman-code-ops/internal/gitops"
 	"github.com/MarshMeg/foreman-code-ops/internal/graph"
 	"github.com/MarshMeg/foreman-code-ops/internal/lang"
+	"github.com/MarshMeg/foreman-code-ops/internal/links"
 	"github.com/MarshMeg/foreman-code-ops/internal/project"
 	"github.com/MarshMeg/foreman-code-ops/internal/workspace"
 )
@@ -54,6 +55,7 @@ type Ops struct {
 	gen   *generator
 	val   *validator
 	graph graph.Provider
+	links *links.Discoverer
 	cfg   config.Config
 	log   *slog.Logger
 
@@ -74,7 +76,7 @@ func New(proj *project.Project, reg *lang.Registry, cfg config.Config, log *slog
 		return nil, err
 	}
 	return &Ops{proj: proj, reg: reg, gate: g, gen: newGenerator(cfg), val: newValidator(cfg),
-		graph: graph.New(cfg.Graph, proj.Root, log), cfg: cfg, log: log}, nil
+		graph: graph.New(cfg.Graph, proj.Root, log), links: links.New(proj, reg), cfg: cfg, log: log}, nil
 }
 
 // Project returns the project.
@@ -165,6 +167,9 @@ func (o *Ops) DeleteSymbol(ctx context.Context, file, name string, force bool) (
 		refs, truncated, source, err := o.references(ctx, rel, sym)
 		if err != nil {
 			return Result{}, err
+		}
+		if cross := o.crossServiceCallers(rel, sym.Name); len(cross) > 0 {
+			refs = append(cross, refs...)
 		}
 		if len(refs) > 0 {
 			w := []string{source}
@@ -336,9 +341,17 @@ func (o *Ops) gateAndCommit(ctx context.Context, cs *workspace.Changeset, force 
 	return res, err
 }
 
-// commit checks for user changes in the touched files, applies cs and commits it.
-// The caller holds o.mu.
+// commit refreshes links.json for the change (when the project keeps one), then checks for
+// user changes in the touched files, applies cs and commits it. The caller holds o.mu.
 func (o *Ops) commit(ctx context.Context, cs *workspace.Changeset, msg gitops.Message) (Result, error) {
+	if err := o.refreshLinks(cs); err != nil {
+		o.log.Warn("links refresh failed", "err", err)
+	}
+	return o.commitPlain(ctx, cs, msg)
+}
+
+// commitPlain is commit without the links refresh.
+func (o *Ops) commitPlain(ctx context.Context, cs *workspace.Changeset, msg gitops.Message) (Result, error) {
 	files := cs.Files()
 	if len(files) == 0 {
 		return Result{Status: StatusUnchanged, Message: "nothing to change"}, nil

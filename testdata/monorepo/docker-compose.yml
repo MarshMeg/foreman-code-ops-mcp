@@ -1,0 +1,13 @@
+services:
+  backend:
+    build: ./backend
+    ports: ["8080:8080"]
+  frontend:
+    build:
+      context: ./frontend
+    environment:
+      VITE_API_URL: http://backend:8080/api
+  worker:
+    build: ./worker
+    environment:
+      - BACKEND_URL=http://backend:8080/api

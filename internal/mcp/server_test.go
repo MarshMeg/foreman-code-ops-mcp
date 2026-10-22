@@ -62,7 +62,7 @@ func TestToolsListed(t *testing.T) {
 			t.Errorf("%s has no description", tool.Name)
 		}
 	}
-	want := []string{"check", "create_file", "delete_file", "delete_symbol", "get_symbol",
+	want := []string{"check", "create_file", "delete_file", "delete_symbol", "discover_links", "get_links", "get_symbol",
 		"run_tests", "status", "style_get", "style_set", "upsert_symbol"}
 	slices.Sort(names)
 	if !slices.Equal(names, want) {
