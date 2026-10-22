@@ -1,5 +1,14 @@
 package setup
 
+import (
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
 // claudeSection is the CLAUDE.md section init writes between its markers: use foreman's graph to
 // read the code and foreman's tools to change it.
 func claudeSection() string {
@@ -22,4 +31,49 @@ func claudeSection() string {
 		"- Write specs, interfaces, commit messages and the style guide (" + bt + "style_set" + bt + ") in English.\n" +
 		"<!-- foreman-code-ops:end -->\n"
 	return text
+}
+
+// claudeMD writes the foreman section into CLAUDE.md, replacing an earlier version between the markers and keeping the rest of the file.
+func claudeMD(o Options, rep *Report) error {
+	const (
+		beginMarker = "<!-- foreman-code-ops:begin -->"
+		endMarker   = "<!-- foreman-code-ops:end -->"
+	)
+	path := filepath.Join(o.Root, "CLAUDE.md")
+	data, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("setup: reading %q: %w", path, err)
+	}
+	old := string(data)
+	section := claudeSection()
+
+	var out string
+	begin := strings.Index(old, beginMarker)
+	end := strings.Index(old, endMarker)
+	if begin >= 0 && end > begin {
+		tail := end + len(endMarker)
+		if strings.HasPrefix(old[tail:], "\n") {
+			tail++
+		}
+		out = old[:begin] + section + old[tail:]
+		if out == old {
+			rep.add("kept CLAUDE.md (foreman section up to date)")
+			return nil
+		}
+	} else {
+		out = old
+		if out != "" {
+			if !strings.HasSuffix(out, "\n") {
+				out += "\n"
+			}
+			out += "\n"
+		}
+		out += section
+	}
+
+	if err := writeFile(path, []byte(out)); err != nil {
+		return fmt.Errorf("setup: writing %q: %w", path, err)
+	}
+	rep.add("wrote the foreman section to CLAUDE.md (read code through the graph, write it through foreman)")
+	return nil
 }
