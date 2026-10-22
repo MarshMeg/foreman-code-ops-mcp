@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(**/*.go)",
+      "Edit(**/*.js)",
+      "Edit(**/*.jsx)"
+    ]
+  }
+}

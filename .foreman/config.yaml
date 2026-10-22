@@ -1,0 +1,14 @@
+# Project settings for foreman-code-ops; see docs/config.md.
+# API keys never go here: the validator reads ANTHROPIC_API_KEY from the environment.
+
+generator:
+  provider: openai
+  base_url: http://localhost:8080/v1
+  model: qwythos.9b.q4_k_m.mtp.gguf
+  slots: 4                # llama-server -np 4
+  slot_ctx: 12288         # llama-server -c 49152 / -np 4
+  output_reserve: 4096    # small slots: keep 8k for the prompt
+
+validator:
+  provider: anthropic
+  model: claude-sonnet-5-5
