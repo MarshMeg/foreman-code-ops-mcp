@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/lang"
-	"github.com/MarshMeg/foreman-code-ops/internal/workspace"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/workspace"
 )
 
 // group is a set of files and directories checked together in one root.

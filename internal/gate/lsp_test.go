@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarshMeg/foreman-code-ops/adapters"
-	"github.com/MarshMeg/foreman-code-ops/internal/config"
-	"github.com/MarshMeg/foreman-code-ops/internal/lang/builtin"
-	"github.com/MarshMeg/foreman-code-ops/internal/lsp"
-	"github.com/MarshMeg/foreman-code-ops/internal/project"
-	tu "github.com/MarshMeg/foreman-code-ops/internal/testutil"
+	"github.com/MarshMeg/foreman-code-ops-mcp/adapters"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/config"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang/builtin"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lsp"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/project"
+	tu "github.com/MarshMeg/foreman-code-ops-mcp/internal/testutil"
 )
 
 // With language servers on, an error in a changed file comes from the warm server and the

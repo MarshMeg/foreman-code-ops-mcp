@@ -1,62 +1,86 @@
 name: release
 
-# tree-sitter needs cgo, so each platform is built natively on its own runner
-# instead of cross-compiling. Linux builds on 22.04 for an older glibc baseline.
+# A tag vX.Y.Z builds every platform (build.yml), publishes a GitHub release with the
+# archives, the Agent SDK sidecar package and checksums, then installs it with
+# scripts/install.sh to check the published files.
 
 on:
   push:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { runner: ubuntu-22.04, goos: linux, goarch: amd64 }
-          - { runner: ubuntu-22.04-arm, goos: linux, goarch: arm64 }
-          # macOS is best effort in v1: a failed build does not block the release.
-          - { runner: macos-15, goos: darwin, goarch: arm64, best_effort: true }
-          - { runner: macos-15-intel, goos: darwin, goarch: amd64, best_effort: true }
-    runs-on: ${{ matrix.runner }}
-    continue-on-error: ${{ matrix.best_effort == true }}
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - name: Build
-        env:
-          CGO_ENABLED: "1"
+      - id: version
+        name: Tag matches the plugin version
         run: |
           set -eu
           version="${GITHUB_REF_NAME#v}"
-          name="foreman-code-ops_${version}_${{ matrix.goos }}_${{ matrix.goarch }}"
-          test "$(go env GOOS)/$(go env GOARCH)" = "${{ matrix.goos }}/${{ matrix.goarch }}"
-          mkdir -p "dist/$name"
-          go build -trimpath -ldflags "-s -w -X main.version=${version}" -o "dist/$name/foreman-code-ops" ./cmd/foreman-code-ops
-          "dist/$name/foreman-code-ops" version
-          cp LICENSE README.md README.ru.md config.example.yaml "dist/$name/"
-          tar -C dist -czf "dist/$name.tar.gz" "$name"
-      - uses: actions/upload-artifact@v4
+          plugin=$(jq -r .version plugin/.claude-plugin/plugin.json)
+          if [ "$plugin" != "$version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match plugin/.claude-plugin/plugin.json version $plugin"
+            exit 1
+          fi
+          grep -q "^## \[$version\]" CHANGELOG.md || { echo "::error::CHANGELOG.md has no section for $version"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-go@v5
         with:
-          name: ${{ matrix.goos }}-${{ matrix.goarch }}
-          path: dist/*.tar.gz
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go test ./...
 
-  release:
-    needs: build
+  build:
+    needs: check
+    uses: ./.github/workflows/build.yml
+    with:
+      version: ${{ needs.check.outputs.version }}
+
+  publish:
+    needs: [check, build]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
       - name: Checksums
-        run: cd dist && sha256sum *.tar.gz > checksums.txt && cat checksums.txt
+        run: cd dist && sha256sum *.tar.gz *.tgz > checksums.txt && cat checksums.txt
+      - name: Release notes from CHANGELOG.md
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: awk -v v="$VERSION" '/^## \[/{p = index($0, "[" v "]") > 0; next} p' CHANGELOG.md > notes.md
       - name: Publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes
+        run: |
+          prerelease=""
+          case "$GITHUB_REF_NAME" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" --notes-file notes.md $prerelease
+
+  verify:
+    needs: [check, publish]
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the published release
+        env:
+          FOREMAN_VERSION: ${{ needs.check.outputs.version }}
+          FOREMAN_BIN_DIR: ${{ runner.temp }}/bin
+        run: |
+          sh scripts/install.sh
+          test "$("$FOREMAN_BIN_DIR/foreman-code-ops" version)" = "$FOREMAN_VERSION"

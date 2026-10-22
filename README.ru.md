@@ -31,16 +31,26 @@ Claude вызывает `upsert_symbol` вместо `Edit`/`Write`. Кажды�
 
 ## Установка
 
-1. Установите сервер (нужен C-компилятор для грамматик tree-sitter):
+1. Установите сервер. Бинарники для релизов (Linux amd64/arm64; macOS — без гарантий) собирает
+   GitHub Actions:
 
    ```bash
-   go install github.com/MarshMeg/foreman-code-ops/cmd/foreman-code-ops@latest
+   curl -fsSL https://raw.githubusercontent.com/MarshMeg/foreman-code-ops-mcp/main/scripts/install.sh | sh
+   ```
+
+   Скрипт выбирает архив под вашу платформу, сверяет его с `checksums.txt` и ставит в
+   `~/.local/bin` (поменять можно через `FOREMAN_BIN_DIR` и `FOREMAN_VERSION`). Или соберите из
+   исходников (нужен C-компилятор для грамматик tree-sitter):
+
+   ```bash
+   go install github.com/MarshMeg/foreman-code-ops-mcp/cmd/foreman-code-ops@latest
    ```
 
 2. Установите плагин для Claude Code (регистрация MCP-сервера и skill с правилами работы):
 
    ```
-   /plugin install foreman-code-ops --marketplace MarshMeg/foreman-code-ops
+   /plugin marketplace add MarshMeg/foreman-code-ops-mcp
+   /plugin install foreman-code-ops@foreman-code-ops
    ```
 
 3. Подготовьте проект:

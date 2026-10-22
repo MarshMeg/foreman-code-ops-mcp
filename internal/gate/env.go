@@ -16,8 +16,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/lang"
-	"github.com/MarshMeg/foreman-code-ops/internal/workspace"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/workspace"
 )
 
 // maxCopiedConfig is the largest top-level file copied (not symlinked) into a shadow root.

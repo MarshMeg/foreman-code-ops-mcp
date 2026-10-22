@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/config"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/config"
 )
 
 // codebaseMemory uses the codebase-memory-mcp CLI: `codebase-memory-mcp cli <tool>` with

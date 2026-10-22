@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/providers"
-	tu "github.com/MarshMeg/foreman-code-ops/internal/testutil"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/providers"
+	tu "github.com/MarshMeg/foreman-code-ops-mcp/internal/testutil"
 )
 
 func TestRun(t *testing.T) {

@@ -19,18 +19,18 @@ import (
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/bench"
-	"github.com/MarshMeg/foreman-code-ops/internal/config"
-	"github.com/MarshMeg/foreman-code-ops/internal/gitops"
-	"github.com/MarshMeg/foreman-code-ops/internal/journal"
-	"github.com/MarshMeg/foreman-code-ops/internal/lang/builtin"
-	"github.com/MarshMeg/foreman-code-ops/internal/logging"
-	"github.com/MarshMeg/foreman-code-ops/internal/mcp"
-	"github.com/MarshMeg/foreman-code-ops/internal/ops"
-	"github.com/MarshMeg/foreman-code-ops/internal/project"
-	"github.com/MarshMeg/foreman-code-ops/internal/providers"
-	"github.com/MarshMeg/foreman-code-ops/internal/setup"
-	"github.com/MarshMeg/foreman-code-ops/internal/stats"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/bench"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/config"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/gitops"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/journal"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang/builtin"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/logging"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/mcp"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/ops"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/project"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/providers"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/setup"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/stats"
 )
 
 // version is set at build time via -ldflags "-X main.version=...".

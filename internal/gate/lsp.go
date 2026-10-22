@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/lang"
-	"github.com/MarshMeg/foreman-code-ops/internal/lsp"
-	"github.com/MarshMeg/foreman-code-ops/internal/workspace"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lsp"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/workspace"
 )
 
 // defaultSettle is the wait for further pushed diagnostics (servers without pull diagnostics).

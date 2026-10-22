@@ -9,12 +9,12 @@ import (
 	"math"
 	"time"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/budget"
-	"github.com/MarshMeg/foreman-code-ops/internal/config"
-	"github.com/MarshMeg/foreman-code-ops/internal/gate"
-	"github.com/MarshMeg/foreman-code-ops/internal/lang"
-	"github.com/MarshMeg/foreman-code-ops/internal/providers"
-	"github.com/MarshMeg/foreman-code-ops/internal/workspace"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/budget"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/config"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/gate"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/providers"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/workspace"
 )
 
 // validatorMaxTokens bounds validator answers (reviews and rewrites of one symbol).

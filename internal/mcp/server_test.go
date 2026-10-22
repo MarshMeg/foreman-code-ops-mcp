@@ -10,9 +10,9 @@ import (
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/config"
-	"github.com/MarshMeg/foreman-code-ops/internal/journal"
-	tu "github.com/MarshMeg/foreman-code-ops/internal/testutil"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/config"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/journal"
+	tu "github.com/MarshMeg/foreman-code-ops-mcp/internal/testutil"
 )
 
 func connect(t *testing.T, d Deps) *sdk.ClientSession {

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/lang/builtin"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang/builtin"
 )
 
 func TestSpliceMembers(t *testing.T) {

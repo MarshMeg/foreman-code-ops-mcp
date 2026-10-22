@@ -17,9 +17,9 @@ import (
 	tsrs "github.com/tree-sitter/tree-sitter-rust/bindings/go"
 	tsts "github.com/tree-sitter/tree-sitter-typescript/bindings/go"
 
-	"github.com/MarshMeg/foreman-code-ops/adapters"
-	"github.com/MarshMeg/foreman-code-ops/internal/lang"
-	"github.com/MarshMeg/foreman-code-ops/internal/lang/generic"
+	"github.com/MarshMeg/foreman-code-ops-mcp/adapters"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang/generic"
 )
 
 // Grammars are the tree-sitter grammars compiled into the binary, by name.

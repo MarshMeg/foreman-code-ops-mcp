@@ -15,7 +15,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/project"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/project"
 )
 
 // Options configures Init.

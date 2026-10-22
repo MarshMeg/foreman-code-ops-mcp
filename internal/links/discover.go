@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/lang"
-	"github.com/MarshMeg/foreman-code-ops/internal/project"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/project"
 )
 
 // Source provides file contents; nil content means "read from disk". It lets the caller

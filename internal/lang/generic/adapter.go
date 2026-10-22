@@ -19,7 +19,7 @@ import (
 	ts "github.com/tree-sitter/go-tree-sitter"
 	"gopkg.in/yaml.v3"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/lang"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang"
 )
 
 // Spec is the content of adapters/<lang>/adapter.yaml.

@@ -8,11 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/config"
-	"github.com/MarshMeg/foreman-code-ops/internal/lang"
-	"github.com/MarshMeg/foreman-code-ops/internal/lang/builtin"
-	"github.com/MarshMeg/foreman-code-ops/internal/project"
-	tu "github.com/MarshMeg/foreman-code-ops/internal/testutil"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/config"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang/builtin"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/project"
+	tu "github.com/MarshMeg/foreman-code-ops-mcp/internal/testutil"
 )
 
 const fixture = "../../testdata/go-layered"

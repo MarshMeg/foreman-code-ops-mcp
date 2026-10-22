@@ -13,13 +13,13 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/budget"
-	"github.com/MarshMeg/foreman-code-ops/internal/edit"
-	"github.com/MarshMeg/foreman-code-ops/internal/gate"
-	"github.com/MarshMeg/foreman-code-ops/internal/lang"
-	"github.com/MarshMeg/foreman-code-ops/internal/providers"
-	"github.com/MarshMeg/foreman-code-ops/internal/workspace"
-	"github.com/MarshMeg/foreman-code-ops/prompts"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/budget"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/edit"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/gate"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/providers"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/workspace"
+	"github.com/MarshMeg/foreman-code-ops-mcp/prompts"
 )
 
 // maxFixDiagnostics caps the diagnostics shown to the generator in a fix round.

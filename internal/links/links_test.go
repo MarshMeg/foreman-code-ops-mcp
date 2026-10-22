@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/lang/builtin"
-	"github.com/MarshMeg/foreman-code-ops/internal/project"
-	tu "github.com/MarshMeg/foreman-code-ops/internal/testutil"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang/builtin"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/project"
+	tu "github.com/MarshMeg/foreman-code-ops-mcp/internal/testutil"
 )
 
 func discover(t *testing.T, dir string) *Map {

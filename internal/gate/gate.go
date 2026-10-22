@@ -15,11 +15,11 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/config"
-	"github.com/MarshMeg/foreman-code-ops/internal/lang"
-	"github.com/MarshMeg/foreman-code-ops/internal/lsp"
-	"github.com/MarshMeg/foreman-code-ops/internal/project"
-	"github.com/MarshMeg/foreman-code-ops/internal/workspace"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/config"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lsp"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/project"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/workspace"
 )
 
 // maxTestOutput is how much of the test output tail is returned.

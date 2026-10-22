@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/config"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/config"
 )
 
 // Path returns <root>/.foreman/style.md.

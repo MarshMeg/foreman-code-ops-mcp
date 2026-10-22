@@ -40,7 +40,6 @@ jobs:
           dotnet-version: "8.0.x"
       - run: go vet ./...
       - run: go test -race ./...
-      - run: go build ./cmd/foreman-code-ops
       # The sidecar's unit tests use a fake query function; no SDK install or API key needed.
       - run: node --test 'sidecar/agent-sdk/*.test.mjs'
 
@@ -54,3 +53,19 @@ jobs:
       - uses: golangci/golangci-lint-action@v8
         with:
           version: latest
+
+  plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # The marketplace (repository root) and the plugin manifest.
+      - run: npx -y @anthropic-ai/claude-code@2.1.294 plugin validate .
+      - run: npx -y @anthropic-ai/claude-code@2.1.294 plugin validate ./plugin
+
+  build:
+    uses: ./.github/workflows/build.yml
+    with:
+      version: 0.0.0-dev.${{ github.sha }}

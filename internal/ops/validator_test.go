@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/config"
-	tu "github.com/MarshMeg/foreman-code-ops/internal/testutil"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/config"
+	tu "github.com/MarshMeg/foreman-code-ops-mcp/internal/testutil"
 )
 
 var goodCount = tu.Answer{Code: countImpl, Imports: []string{`"fmt"`}}

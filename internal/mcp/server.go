@@ -11,10 +11,10 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/config"
-	"github.com/MarshMeg/foreman-code-ops/internal/journal"
-	"github.com/MarshMeg/foreman-code-ops/internal/links"
-	"github.com/MarshMeg/foreman-code-ops/internal/ops"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/config"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/journal"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/links"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/ops"
 )
 
 // ServerName is the name clients register the server under (tools become mcp__foreman__*).

@@ -8,9 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/gitops"
-	"github.com/MarshMeg/foreman-code-ops/internal/links"
-	"github.com/MarshMeg/foreman-code-ops/internal/workspace"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/gitops"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/links"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/workspace"
 )
 
 // LinksResult is the outcome of DiscoverLinks.

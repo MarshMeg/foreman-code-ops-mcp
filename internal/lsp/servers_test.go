@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	tu "github.com/MarshMeg/foreman-code-ops/internal/testutil"
+	tu "github.com/MarshMeg/foreman-code-ops-mcp/internal/testutil"
 )
 
 // TestRealServers runs the client against installed language servers: a candidate with a

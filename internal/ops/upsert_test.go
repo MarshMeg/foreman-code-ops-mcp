@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/config"
-	tu "github.com/MarshMeg/foreman-code-ops/internal/testutil"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/config"
+	tu "github.com/MarshMeg/foreman-code-ops-mcp/internal/testutil"
 )
 
 const countImpl = `// Count returns the number of books.

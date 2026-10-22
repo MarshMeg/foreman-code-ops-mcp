@@ -71,7 +71,7 @@ func New(s Spec) (Provider, error) {
 			FallbackMode: StructuredNone,
 			ReportCost:   true,
 			Headers: map[string]string{
-				"HTTP-Referer": "https://github.com/MarshMeg/foreman-code-ops",
+				"HTTP-Referer": "https://github.com/MarshMeg/foreman-code-ops-mcp",
 				"X-Title":      "foreman-code-ops",
 			}}), nil
 	case "anthropic":

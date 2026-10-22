@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/config"
-	"github.com/MarshMeg/foreman-code-ops/internal/gitops"
-	"github.com/MarshMeg/foreman-code-ops/internal/style"
-	"github.com/MarshMeg/foreman-code-ops/internal/workspace"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/config"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/gitops"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/style"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/workspace"
 )
 
 // StyleInfo is the project style guide.

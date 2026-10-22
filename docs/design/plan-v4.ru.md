@@ -30,7 +30,7 @@ Open-source MCP-сервер и плагин для Claude Code. Claude (Opus) �
 
 | Где | Значение |
 |---|---|
-| Репозиторий / Go-модуль | `github.com/MarshMeg/foreman-code-ops` |
+| Репозиторий / Go-модуль | `github.com/MarshMeg/foreman-code-ops-mcp` |
 | Бинарник | `foreman-code-ops` (короткий алиас в документации: `foreman`) |
 | Имя MCP-сервера в `.mcp.json` | `foreman` (инструменты: `mcp__foreman__upsert_symbol` и т. д.) |
 | Папка проекта | `.foreman/` (`config.yaml`, `style.md`, `workspace.yaml`, `links.json`, `cache/`) |
@@ -545,7 +545,7 @@ Generic-адаптер реализует этот интерфейс по YAML.
 
 ### Этап 0 — каркас и open-source гигиена (2 дня)
 - [x] Go-модуль, MCP-сервер, заглушки инструментов
-- [x] Go-модуль `github.com/MarshMeg/foreman-code-ops`
+- [x] Go-модуль `github.com/MarshMeg/foreman-code-ops-mcp`
 - [x] Загрузка конфига: CLI → env → проект → глобальный, включая блок `limits`
 - [x] Journal, логирование
 - [x] LICENSE (MIT), README (en) + README.ru.md, CONTRIBUTING, CI (lint + test), workflow релизов
@@ -621,7 +621,7 @@ Generic-адаптер реализует этот интерфейс по YAML.
 - [x] Документация по написанию адаптеров, примеры для Rust/C# (встроенные экспериментальные адаптеры; символы проверены тестами, гейт — только в CI, локально без cargo/dotnet), проектные адаптеры в `.foreman/adapters/`
 
 ### Этап 8 — релиз
-- [ ] Бинарники для Linux (amd64/arm64) нативной сборкой на раннерах; macOS — сборка в CI без гарантий; Windows — не в v1
+- [ ] Бинарники для Linux (amd64/arm64) нативной сборкой на раннерах; macOS — сборка в CI без гарантий; Windows — не в v1. Вся сборка — только в GitHub Actions (репозиторий `MarshMeg/foreman-code-ops-mcp`, module path переименован под него): `build.yml` (переиспользуемый: нативная сборка, smoke-тест MCP по stdio, упаковка sidecar), `ci.yml` (тесты, линт, валидация плагина и marketplace, снапшот-сборка на каждый push), `release.yml` (тег `vX.Y.Z`: проверка версии плагина и CHANGELOG, тесты, сборка, релиз с checksums, проверка установки через `scripts/install.sh`). Не отмечено, пока не пройдёт первый прогон
 - [ ] Публикация плагина (marketplace-репозиторий)
 - [ ] Демо-видео и пример-проект
 

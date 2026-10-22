@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/lang"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang"
 )
 
 func goAdapter(t *testing.T) lang.Adapter {

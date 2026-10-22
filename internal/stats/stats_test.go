@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/gitops"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/gitops"
 )
 
 const journalFixture = `{"time":"2026-10-01T10:00:00Z","tool":"upsert_symbol","status":"applied","written_by":"local","lang":"go","mode":"local","duration_ms":4000,"generator":{"model":"openai/qwen","prompt_tokens":1000,"completion_tokens":200}}

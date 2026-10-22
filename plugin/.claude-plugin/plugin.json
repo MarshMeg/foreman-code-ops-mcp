@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "description": "Claude plans, a local or cheap model writes code symbol by symbol, a gate and an optional validator check it, and every change is committed.",
   "author": { "name": "MarshMeg" },
-  "homepage": "https://github.com/MarshMeg/foreman-code-ops",
-  "repository": "https://github.com/MarshMeg/foreman-code-ops",
+  "homepage": "https://github.com/MarshMeg/foreman-code-ops-mcp",
+  "repository": "https://github.com/MarshMeg/foreman-code-ops-mcp",
   "license": "MIT",
   "keywords": ["mcp", "code-generation", "local-llm", "tree-sitter", "git"]
 }

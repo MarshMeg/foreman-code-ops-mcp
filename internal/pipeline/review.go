@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/providers"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/providers"
 )
 
 // ReviewInput is what the validator sees.

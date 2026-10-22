@@ -4,8 +4,8 @@ import (
 	"context"
 	"os"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/gate"
-	"github.com/MarshMeg/foreman-code-ops/internal/workspace"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/gate"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/workspace"
 )
 
 // Check runs the gate on files as they are on disk. Explicitly listed files are also

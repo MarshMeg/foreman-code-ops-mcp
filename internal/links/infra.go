@@ -13,7 +13,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/project"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/project"
 )
 
 // infra is what docker-compose, .env files and contracts say about services.

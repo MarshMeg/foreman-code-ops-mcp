@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/config"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/config"
 )
 
 // fakeBin writes an executable shell script named name into a temp dir on PATH.

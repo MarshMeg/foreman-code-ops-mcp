@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/budget"
-	"github.com/MarshMeg/foreman-code-ops/internal/config"
-	"github.com/MarshMeg/foreman-code-ops/internal/providers"
-	"github.com/MarshMeg/foreman-code-ops/internal/scheduler"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/budget"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/config"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/providers"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/scheduler"
 )
 
 // generator is the configured code-writing model plus its slots.

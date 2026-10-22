@@ -9,15 +9,15 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/budget"
-	"github.com/MarshMeg/foreman-code-ops/internal/config"
-	"github.com/MarshMeg/foreman-code-ops/internal/gate"
-	"github.com/MarshMeg/foreman-code-ops/internal/gitops"
-	"github.com/MarshMeg/foreman-code-ops/internal/lang"
-	"github.com/MarshMeg/foreman-code-ops/internal/pipeline"
-	"github.com/MarshMeg/foreman-code-ops/internal/providers"
-	"github.com/MarshMeg/foreman-code-ops/internal/style"
-	"github.com/MarshMeg/foreman-code-ops/internal/workspace"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/budget"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/config"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/gate"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/gitops"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/pipeline"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/providers"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/style"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/workspace"
 )
 
 // Kinds accepted by upsert_symbol.

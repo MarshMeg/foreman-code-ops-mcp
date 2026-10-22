@@ -1,4 +1,4 @@
-module github.com/MarshMeg/foreman-code-ops
+module github.com/MarshMeg/foreman-code-ops-mcp
 
 go 1.27.1
 

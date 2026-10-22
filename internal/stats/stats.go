@@ -17,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/gitops"
-	"github.com/MarshMeg/foreman-code-ops/internal/journal"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/gitops"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/journal"
 )
 
 // Report is the summary printed by `foreman-code-ops stats`.

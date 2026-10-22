@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	tu "github.com/MarshMeg/foreman-code-ops/internal/testutil"
+	tu "github.com/MarshMeg/foreman-code-ops-mcp/internal/testutil"
 )
 
 func TestUpsertPython(t *testing.T) {

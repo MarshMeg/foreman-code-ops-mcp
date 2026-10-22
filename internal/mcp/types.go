@@ -1,10 +1,10 @@
 package mcp
 
 import (
-	"github.com/MarshMeg/foreman-code-ops/internal/config"
-	"github.com/MarshMeg/foreman-code-ops/internal/gate"
-	"github.com/MarshMeg/foreman-code-ops/internal/links"
-	"github.com/MarshMeg/foreman-code-ops/internal/ops"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/config"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/gate"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/links"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/ops"
 )
 
 // SymbolRef points to a symbol whose source the server resolves itself.

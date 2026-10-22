@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/lang"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang"
 	"golang.org/x/tools/go/ast/astutil"
 	"golang.org/x/tools/imports"
 )

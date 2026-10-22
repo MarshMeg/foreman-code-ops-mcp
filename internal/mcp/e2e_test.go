@@ -6,12 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/config"
-	"github.com/MarshMeg/foreman-code-ops/internal/journal"
-	"github.com/MarshMeg/foreman-code-ops/internal/lang/builtin"
-	"github.com/MarshMeg/foreman-code-ops/internal/ops"
-	"github.com/MarshMeg/foreman-code-ops/internal/project"
-	tu "github.com/MarshMeg/foreman-code-ops/internal/testutil"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/config"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/journal"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/lang/builtin"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/ops"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/project"
+	tu "github.com/MarshMeg/foreman-code-ops-mcp/internal/testutil"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )

@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/MarshMeg/foreman-code-ops/internal/pipeline"
-	"github.com/MarshMeg/foreman-code-ops/internal/providers"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/pipeline"
+	"github.com/MarshMeg/foreman-code-ops-mcp/internal/providers"
 )
 
 // Sample is a fixed review task: a small service method with context.
