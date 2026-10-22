@@ -165,6 +165,11 @@ func (g *graphify) Name() string { return "graphify" }
 
 func (g *graphify) path() string { return filepath.Join(g.root, "graphify-out", "graph.json") }
 
+// reportPath returns the location of the human-readable report that graphify writes next to graph.json.
+func (g *graphify) reportPath() string {
+	return filepath.Join(g.root, "graphify-out", "GRAPH_REPORT.md")
+}
+
 func (g *graphify) Available(context.Context) (bool, string) {
 	if _, err := os.Stat(g.path()); err != nil {
 		return false, "graphify-out/graph.json not found; run graphify on the project"
