@@ -46,7 +46,7 @@ Claude вызывает `upsert_symbol` вместо `Edit`/`Write`. Кажды�
    go install github.com/MarshMeg/foreman-code-ops-mcp/cmd/foreman-code-ops@latest
    ```
 
-2. Установите плагин для Claude Code (регистрация MCP-сервера и skill с правилами работы):
+2. Установите плагин для Claude Code (регистрация MCP-сервера, skill с правилами работы и скил настройки):
 
    ```
    /plugin marketplace add MarshMeg/foreman-code-ops-mcp
@@ -71,8 +71,9 @@ Claude вызывает `upsert_symbol` вместо `Edit`/`Write`. Кажды�
 
 ### Или пусть Claude поставит всё сам
 
-Вставьте этот промт в Claude Code в своём проекте. Claude выполнит шаги выше и спросит вас только
-о том, что не сможет выяснить сам:
+Если плагин уже установлен, выполните в проекте `/foreman-code-ops:setup`: скил настройки поставит
+бинарник и настроит проект, спрашивая только то, что не сможет выяснить сам. Без плагина вставьте
+в Claude Code этот промт:
 
 ```text
 Установи и настрой MCP-сервер foreman-code-ops (https://github.com/MarshMeg/foreman-code-ops-mcp)

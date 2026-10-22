@@ -46,7 +46,7 @@ Claude calls `upsert_symbol` instead of `Edit`/`Write`; each successful call is 
    go install github.com/MarshMeg/foreman-code-ops-mcp/cmd/foreman-code-ops@latest
    ```
 
-2. Install the Claude Code plugin (MCP server registration and the usage skill):
+2. Install the Claude Code plugin (MCP server registration, the usage skill and the setup skill):
 
    ```
    /plugin marketplace add MarshMeg/foreman-code-ops-mcp
@@ -71,8 +71,9 @@ project `.mcp.json` entry, `mcp__foreman__<tool>`.
 
 ### Or let Claude set it up
 
-Paste this into Claude Code in your project. Claude does the steps above and asks you only for
-what it cannot find out itself:
+With the plugin installed, run `/foreman-code-ops:setup` in your project: the setup skill installs the
+binary and configures the project, asking you only for what it cannot find out itself. Without
+the plugin, paste this prompt into Claude Code instead:
 
 ```text
 Install and configure the foreman-code-ops MCP server (https://github.com/MarshMeg/foreman-code-ops-mcp)
