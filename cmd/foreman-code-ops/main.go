@@ -109,14 +109,14 @@ func serve(args []string, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	defer closeLog()
+	defer func() { _ = closeLog() }()
 
 	j, err := journal.Open(filepath.Join(dir, config.DirName, "cache", "journal.jsonl"))
 	if err != nil {
 		logger.Warn("journal disabled", "err", err)
 		j = journal.Discard()
 	}
-	defer j.Close()
+	defer func() { _ = j.Close() }()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

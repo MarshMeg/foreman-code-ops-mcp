@@ -104,7 +104,7 @@ func (s *BookService) Titles(ctx context.Context) ([]string, error) {
 	}
 	src := tu.ReadFile(t, dir, "internal/service/book.go")
 	list, titles, count := strings.Index(src, ") List("), strings.Index(src, ") Titles("), strings.Index(src, ") Count(")
-	if !(list < titles && titles < count) {
+	if list >= titles || titles >= count {
 		t.Errorf("Titles not inserted after List:\n%s", src)
 	}
 	if !strings.Contains(src, "\t\"strings\"\n") {

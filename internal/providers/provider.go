@@ -102,7 +102,7 @@ func Structured(ctx context.Context, p Provider, req Request, out any) ([]Messag
 			return msgs, total, nil
 		}
 		if attempt == 1 {
-			return msgs, total, fmt.Errorf("%w: %v", ErrInvalidAnswer, verr)
+			return msgs, total, fmt.Errorf("%w: %w", ErrInvalidAnswer, verr)
 		}
 		msgs = append(msgs, Message{Role: "user", Content: "Your answer was rejected: " + verr.Error() +
 			"\nReply again with only a JSON object that matches the required schema. No prose, no Markdown."})
@@ -114,7 +114,7 @@ func decode(text string, schema *jsonschema.Resolved, out any) error {
 	raw := ExtractJSON(text)
 	var instance any
 	if err := json.Unmarshal([]byte(raw), &instance); err != nil {
-		return fmt.Errorf("not valid JSON: %v", err)
+		return fmt.Errorf("not valid JSON: %w", err)
 	}
 	if err := schema.Validate(instance); err != nil {
 		return err

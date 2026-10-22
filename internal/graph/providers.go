@@ -140,7 +140,7 @@ func (c *codebaseMemory) References(ctx context.Context, file, symbol string) ([
 	}
 	refs, err := refsFromJSON(out, c.root)
 	if err != nil {
-		return nil, fmt.Errorf("%w: trace_path output: %v", ErrUnavailable, err)
+		return nil, fmt.Errorf("%w: trace_path output: %w", ErrUnavailable, err)
 	}
 	return excludeSelf(refs, file, symbol), nil
 }
@@ -206,7 +206,7 @@ func (g *graphify) References(_ context.Context, file, symbol string) ([]Ref, er
 	}
 	var gr nodeLink
 	if err := json.Unmarshal(data, &gr); err != nil {
-		return nil, fmt.Errorf("%w: graph.json: %v", ErrUnavailable, err)
+		return nil, fmt.Errorf("%w: graph.json: %w", ErrUnavailable, err)
 	}
 	nodes := map[string]map[string]any{}
 	targets := map[string]bool{}
@@ -299,7 +299,7 @@ func (c *command) References(ctx context.Context, file, symbol string) ([]Ref, e
 	}
 	out, err := run(ctx, c.root, nil, c.expand(c.cfg.References, file, symbol, nil)...)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrUnavailable, err)
+		return nil, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
 	refs, jerr := refsFromJSON(out, c.root)
 	if jerr != nil {

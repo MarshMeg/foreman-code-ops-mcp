@@ -249,7 +249,10 @@ func (e *env) cacheDir() string {
 		base = os.TempDir()
 	}
 	dir := filepath.Join(base, "foreman-code-ops", "cache", hex.EncodeToString(sum[:8]))
-	os.MkdirAll(dir, 0o755)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		// Builds still work without a warm cache, just slower.
+		return filepath.Join(e.tmp, "cache")
+	}
 	return dir
 }
 

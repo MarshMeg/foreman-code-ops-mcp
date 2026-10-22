@@ -165,7 +165,7 @@ func (c *Changeset) Apply() error {
 		}
 		if err != nil {
 			if rerr := c.rollback(done); rerr != nil {
-				return fmt.Errorf("apply %s: %w (rollback failed: %v)", rel, err, rerr)
+				return fmt.Errorf("apply %s: %w (rollback failed: %w)", rel, err, rerr)
 			}
 			return fmt.Errorf("apply %s: %w", rel, err)
 		}
